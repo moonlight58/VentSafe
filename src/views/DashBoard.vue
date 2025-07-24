@@ -36,14 +36,27 @@
       <div class="user-header">
         <div class="user-info">
           <img
-            :src="currentUser?.avatar"
+            v-if="currentUser?.avatar"
+            :src="currentUser.avatar"
             :alt="currentUser?.name"
             class="user-avatar"
             :style="{ backgroundColor: currentUser?.color + '33' }"
+            @error="handleImageError"
           />
+          <div
+            v-else
+            class="user-avatar-placeholder"
+            :style="{ backgroundColor: currentUser?.color + '33' }"
+          >
+            {{ currentUser?.name?.charAt(0) || "?" }}
+          </div>
           <div class="user-details">
-            <h2 class="user-name">{{ currentUser?.name }}'s Space</h2>
-            <p class="user-description">{{ currentUser?.description }}</p>
+            <h2 class="user-name">
+              {{ currentUser?.name || "Unknown User" }}'s Space
+            </h2>
+            <p class="user-description">
+              {{ currentUser?.description || "No description" }}
+            </p>
           </div>
         </div>
         <div class="sync-status">
@@ -268,11 +281,19 @@
               class="timeline-card"
               :class="{
                 processing: card.isProcessing,
-                editing: editingCard?.firebaseId === card.firebaseId || editingCard?.id === card.id,
+                editing:
+                  editingCard?.firebaseId === card.firebaseId ||
+                  editingCard?.id === card.id,
               }"
             >
               <!-- Edit Mode -->
-              <div v-if="(editingCard?.firebaseId === card.firebaseId) || (editingCard?.id === card.id)" class="edit-mode">
+              <div
+                v-if="
+                  editingCard?.firebaseId === card.firebaseId ||
+                  editingCard?.id === card.id
+                "
+                class="edit-mode"
+              >
                 <div class="edit-header">
                   <h4>Edit your card</h4>
                   <div class="edit-actions">
@@ -409,477 +430,503 @@ import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { firebaseService } from "@/services/firebase.js";
 
-const router = useRouter();
+// Export pour le template
+export default {
+  setup() {
+    const router = useRouter();
 
-// User state
-const currentUser = ref(null);
+    // User state
+    const currentUser = ref(null);
 
-// Card creation state
-const selectedMood = ref(null);
-const cardText = ref("");
-const isCreating = ref(false);
+    // Card creation state
+    const selectedMood = ref(null);
+    const cardText = ref("");
+    const isCreating = ref(false);
 
-// Timeline state
-const cards = ref([]);
-const editingCard = ref(null);
-const editText = ref("");
-const editMood = ref(null);
+    // Timeline state
+    const cards = ref([]);
+    const editingCard = ref(null);
+    const editText = ref("");
+    const editMood = ref(null);
 
-// Background animation elements
-const stars = ref([]);
-const shapes = ref([]);
+    // Background animation elements
+    const stars = ref([]);
+    const shapes = ref([]);
 
-// User card sync state
-const isOnline = ref(true);
-const syncStatus = ref("synced"); // 'syncing', 'synced', 'error', 'offline'
-const unsubscribeFirebase = ref(null);
+    // User card sync state
+    const isOnline = ref(true);
+    const syncStatus = ref("synced"); // 'syncing', 'synced', 'error', 'offline'
+    const unsubscribeFirebase = ref(null);
 
-// Available moods
-const moods = ref([
-  {
-    id: 1,
-    name: "Happy",
-    emoji: "😊",
-  },
-  {
-    id: 2,
-    name: "Sad",
-    emoji: "😢",
-  },
-  {
-    id: 3,
-    name: "Anxious",
-    emoji: "😰",
-  },
-  {
-    id: 4,
-    name: "Excited",
-    emoji: "🤩",
-  },
-  {
-    id: 5,
-    name: "Peaceful",
-    emoji: "😌",
-  },
-  {
-    id: 6,
-    name: "Frustrated",
-    emoji: "😤",
-  },
-  {
-    id: 7,
-    name: "Grateful",
-    emoji: "🙏",
-  },
-  {
-    id: 8,
-    name: "Confused",
-    emoji: "🤔",
-  },
-]);
+    // Available moods
+    const moods = ref([
+      {
+        id: 1,
+        name: "Happy",
+        emoji: "😊",
+      },
+      {
+        id: 2,
+        name: "Sad",
+        emoji: "😢",
+      },
+      {
+        id: 3,
+        name: "Anxious",
+        emoji: "😰",
+      },
+      {
+        id: 4,
+        name: "Excited",
+        emoji: "🤩",
+      },
+      {
+        id: 5,
+        name: "Peaceful",
+        emoji: "😌",
+      },
+      {
+        id: 6,
+        name: "Frustrated",
+        emoji: "😤",
+      },
+      {
+        id: 7,
+        name: "Grateful",
+        emoji: "🙏",
+      },
+      {
+        id: 8,
+        name: "Confused",
+        emoji: "🤔",
+      },
+    ]);
 
-// Computed properties
-const canCreateCard = computed(() => {
-  return (
-    selectedMood.value &&
-    cardText.value.trim().length > 0 &&
-    cardText.value.length <= 300
-  );
-});
+    // Computed properties
+    const canCreateCard = computed(() => {
+      return (
+        selectedMood.value &&
+        cardText.value.trim().length > 0 &&
+        cardText.value.length <= 300
+      );
+    });
 
-// Helper function for card keys
-const getCardKey = (card) => {
-  return card.firebaseId || `local-${card.id}`;
-};
+    // Helper function for card keys
+    const getCardKey = (card) => {
+      return card.firebaseId || `local-${card.id}`;
+    };
 
-// Storage functions
-const loadCurrentUser = () => {
-  const saved = localStorage.getItem("selectedUser");
-  return saved ? JSON.parse(saved) : null;
-};
+    // Storage functions
+    const loadCurrentUser = () => {
+      const saved = localStorage.getItem("selectedUser");
+      if (saved) {
+        const user = JSON.parse(saved);
+        console.log("Loaded user from localStorage:", user); // Debug
+        return user;
+      }
+      console.log("No user found in localStorage"); // Debug
+      return null;
+    };
 
-const loadCards = () => {
-  const saved = localStorage.getItem("ventingCards");
-  return saved
-    ? JSON.parse(saved).map((card) => ({
+    const loadCards = () => {
+      const saved = localStorage.getItem("ventingCards");
+      return saved
+        ? JSON.parse(saved).map((card) => ({
+            ...card,
+            timestamp: new Date(card.timestamp),
+            editedAt: card.editedAt ? new Date(card.editedAt) : null,
+          }))
+        : [];
+    };
+
+    const saveCardsLocally = (cardsToSave) => {
+      const cardsForStorage = cardsToSave.map((card) => ({
         ...card,
-        timestamp: new Date(card.timestamp),
-        editedAt: card.editedAt ? new Date(card.editedAt) : null,
-      }))
-    : [];
-};
+        timestamp: card.timestamp.toISOString(),
+        editedAt: card.editedAt ? card.editedAt.toISOString() : null,
+      }));
+      localStorage.setItem("ventingCards", JSON.stringify(cardsForStorage));
+    };
 
-const saveCardsLocally = (cardsToSave) => {
-  const cardsForStorage = cardsToSave.map((card) => ({
-    ...card,
-    timestamp: card.timestamp.toISOString(),
-    editedAt: card.editedAt ? card.editedAt.toISOString() : null,
-  }));
-  localStorage.setItem("ventingCards", JSON.stringify(cardsForStorage));
-};
+    // Background generation functions
+    const generateStars = () => {
+      for (let i = 0; i < 30; i++) {
+        stars.value.push({
+          id: i,
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          size: Math.random() * 2 + 1,
+          delay: Math.random() * 3,
+          duration: Math.random() * 3 + 2,
+        });
+      }
+    };
 
-// Background generation functions
-const generateStars = () => {
-  for (let i = 0; i < 30; i++) {
-    stars.value.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 2 + 1,
-      delay: Math.random() * 3,
-      duration: Math.random() * 3 + 2,
-    });
-  }
-};
+    const generateShapes = () => {
+      const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6"];
+      for (let i = 0; i < 5; i++) {
+        shapes.value.push({
+          id: i,
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          size: Math.random() * 150 + 100,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          duration: Math.random() * 8 + 12,
+        });
+      }
+    };
 
-const generateShapes = () => {
-  const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6"];
-  for (let i = 0; i < 5; i++) {
-    shapes.value.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 150 + 100,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      duration: Math.random() * 8 + 12,
-    });
-  }
-};
+    const createCard = async () => {
+      if (!canCreateCard.value) return;
 
-const createCard = async () => {
-  if (!canCreateCard.value) return;
+      isCreating.value = true;
+      syncStatus.value = "syncing";
 
-  isCreating.value = true;
-  syncStatus.value = "syncing";
+      // Générer un ID temporaire unique
+      const tempId = `temp-${Date.now()}-${Math.random()}`;
 
-  // Générer un ID temporaire unique
-  const tempId = `temp-${Date.now()}-${Math.random()}`;
-  
-  const newCard = {
-    id: tempId,
-    user: currentUser.value,
-    mood: selectedMood.value,
-    text: cardText.value.trim(),
-    timestamp: new Date(),
-    isProcessing: true,
-  };
+      const newCard = {
+        id: tempId,
+        user: currentUser.value,
+        mood: selectedMood.value,
+        text: cardText.value.trim(),
+        timestamp: new Date(),
+        isProcessing: true,
+      };
 
-  // Ajouter localement d'abord pour UX rapide
-  cards.value.unshift(newCard);
-  saveCardsLocally(cards.value);
-
-  try {
-    // Sauvegarder sur Firebase
-    const firebaseId = await firebaseService.saveCard(newCard);
-
-    // Mettre à jour avec l'ID Firebase
-    const cardIndex = cards.value.findIndex((card) => card.id === tempId);
-    if (cardIndex !== -1) {
-      cards.value[cardIndex].firebaseId = firebaseId;
-      cards.value[cardIndex].isProcessing = false;
+      // Ajouter localement d'abord pour UX rapide
+      cards.value.unshift(newCard);
       saveCardsLocally(cards.value);
-    }
 
-    syncStatus.value = "synced";
-    console.log("Card sauvegardée sur Firebase:", firebaseId);
-  } catch (error) {
-    console.error("Erreur Firebase, card gardée localement:", error);
-    syncStatus.value = "error";
+      try {
+        // Sauvegarder sur Firebase
+        const firebaseId = await firebaseService.saveCard(newCard);
 
-    // Simuler le processing local
-    setTimeout(() => {
-      const cardIndex = cards.value.findIndex((card) => card.id === tempId);
-      if (cardIndex !== -1) {
-        cards.value[cardIndex].isProcessing = false;
-        saveCardsLocally(cards.value);
-      }
-    }, 3000);
-  }
+        // Mettre à jour avec l'ID Firebase
+        const cardIndex = cards.value.findIndex((card) => card.id === tempId);
+        if (cardIndex !== -1) {
+          cards.value[cardIndex].firebaseId = firebaseId;
+          cards.value[cardIndex].isProcessing = false;
+          saveCardsLocally(cards.value);
+        }
 
-  // Nettoyer le formulaire
-  selectedMood.value = null;
-  cardText.value = "";
-  isCreating.value = false;
-};
-
-const changeUser = () => {
-  router.push("/");
-};
-
-const formatTime = (timestamp) => {
-  const now = new Date();
-  const cardTime = new Date(timestamp);
-  const diffInMs = now - cardTime;
-  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-  if (diffInMinutes < 1) return "Just now";
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-  if (diffInHours < 24) return `${diffInHours}h ago`;
-  if (diffInDays === 1) return "Yesterday";
-  if (diffInDays < 7) return `${diffInDays} days ago`;
-
-  // For older dates, show actual date
-  const options = {
-    month: "short",
-    day: "numeric",
-  };
-  if (cardTime.getFullYear() !== now.getFullYear()) {
-    options.year = "numeric";
-  }
-  return cardTime.toLocaleDateString("en-US", options);
-};
-
-const startEditing = (card) => {
-  if (card.isProcessing) return;
-  
-  console.log("Editing card:", card); // Debug
-  
-  editingCard.value = card;
-  editText.value = card.text;
-  editMood.value = card.mood;
-};
-
-const cancelEditing = () => {
-  editingCard.value = null;
-  editText.value = "";
-  editMood.value = null;
-};
-
-const saveEdit = async () => {
-  if (!editingCard.value || !editMood.value || !editText.value.trim()) return;
-
-  // Utiliser le bon identifiant pour trouver la card
-  const cardIndex = cards.value.findIndex(
-    (card) => {
-      if (editingCard.value.firebaseId) {
-        return card.firebaseId === editingCard.value.firebaseId;
-      }
-      return card.id === editingCard.value.id;
-    }
-  );
-  
-  if (cardIndex === -1) {
-    console.error("Card not found for editing");
-    return;
-  }
-
-  const updatedCard = {
-    ...cards.value[cardIndex],
-    text: editText.value.trim(),
-    mood: editMood.value,
-    editedAt: new Date(),
-  };
-
-  // Mettre à jour localement
-  cards.value[cardIndex] = updatedCard;
-  saveCardsLocally(cards.value);
-
-  // Mettre à jour sur Firebase si possible
-  if (updatedCard.firebaseId) {
-    try {
-      syncStatus.value = "syncing";
-      await firebaseService.updateCard(updatedCard.firebaseId, {
-        text: updatedCard.text,
-        mood: updatedCard.mood,
-        editedAt: updatedCard.editedAt,
-      });
-      syncStatus.value = "synced";
-    } catch (error) {
-      console.error("Erreur mise à jour Firebase:", error);
-      syncStatus.value = "error";
-    }
-  }
-
-  cancelEditing();
-};
-
-const deleteCard = async (card) => {
-  if (!confirm("Es-tu sûr de vouloir supprimer cette card ?")) return;
-
-  console.log("Deleting card:", card); // Debug
-
-  // Utiliser le bon identifiant pour trouver la card
-  const cardIndex = cards.value.findIndex((c) => {
-    if (card.firebaseId) {
-      return c.firebaseId === card.firebaseId;
-    }
-    return c.id === card.id;
-  });
-  
-  if (cardIndex === -1) {
-    console.error("Card not found for deletion");
-    return;
-  }
-
-  // Supprimer localement
-  cards.value.splice(cardIndex, 1);
-  saveCardsLocally(cards.value);
-
-  // Supprimer sur Firebase si possible
-  if (card.firebaseId) {
-    try {
-      syncStatus.value = "syncing";
-      await firebaseService.deleteCard(card.firebaseId);
-      syncStatus.value = "synced";
-    } catch (error) {
-      console.error("Erreur suppression Firebase:", error);
-      syncStatus.value = "error";
-    }
-  }
-};
-
-const syncWithFirebase = async () => {
-  try {
-    syncStatus.value = "syncing";
-
-    // Charger les données locales
-    const localCards = loadCards();
-
-    // Charger depuis Firebase
-    const firebaseCards = await firebaseService.loadCards();
-
-    if (firebaseCards.length === 0 && localCards.length > 0) {
-      // Migrer les données locales vers Firebase
-      console.log("Migration des données locales vers Firebase...");
-      await firebaseService.migrateLocalData(localCards);
-
-      // Recharger depuis Firebase après migration
-      const migratedCards = await firebaseService.loadCards();
-      cards.value = migratedCards;
-    } else {
-      // Fusionner les données Firebase avec les données locales non synchronisées
-      const mergedCards = mergeCards(firebaseCards, localCards);
-      cards.value = mergedCards;
-    }
-
-    saveCardsLocally(cards.value);
-    syncStatus.value = "synced";
-  } catch (error) {
-    console.error("Erreur de synchronisation:", error);
-    syncStatus.value = "error";
-
-    // Fallback sur les données locales
-    cards.value = loadCards();
-  }
-};
-
-const mergeCards = (firebaseCards, localCards) => {
-  console.log("Merging cards:", { firebaseCards, localCards });
-  
-  // Créer une Map des cards Firebase par firebaseId
-  const firebaseMap = new Map();
-  firebaseCards.forEach(card => {
-    if (card.firebaseId) {
-      firebaseMap.set(card.firebaseId, card);
-    }
-  });
-
-  // Ajouter les cards locales qui n'ont pas d'équivalent Firebase
-  const localOnlyCards = localCards.filter(localCard => {
-    // Si la card locale a un firebaseId, vérifier qu'elle n'existe pas déjà
-    if (localCard.firebaseId) {
-      return !firebaseMap.has(localCard.firebaseId);
-    }
-    // Si pas de firebaseId, c'est une card locale uniquement
-    return true;
-  });
-
-  // Combiner et trier par timestamp
-  const merged = [...firebaseCards, ...localOnlyCards]
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-  console.log("Merged result:", merged);
-  return merged;
-};
-
-const updateOnlineStatus = () => {
-  isOnline.value = navigator.onLine;
-  if (!isOnline.value) {
-    syncStatus.value = "offline";
-  }
-};
-
-onMounted(async () => {
-  // Charger l'utilisateur actuel
-  currentUser.value = loadCurrentUser();
-
-  if (!currentUser.value) {
-    router.push("/");
-    return;
-  }
-
-  // Synchronisation initiale
-  await syncWithFirebase();
-
-  // Écouter les changements en temps réel
-  unsubscribeFirebase.value = firebaseService.onCardsChange(
-    (firebaseCards, error) => {
-      if (error) {
-        console.error("Erreur temps réel Firebase:", error);
+        syncStatus.value = "synced";
+        console.log("Card sauvegardée sur Firebase:", firebaseId);
+      } catch (error) {
+        console.error("Erreur Firebase, card gardée localement:", error);
         syncStatus.value = "error";
+
+        // Simuler le processing local
+        setTimeout(() => {
+          const cardIndex = cards.value.findIndex((card) => card.id === tempId);
+          if (cardIndex !== -1) {
+            cards.value[cardIndex].isProcessing = false;
+            saveCardsLocally(cards.value);
+          }
+        }, 3000);
+      }
+
+      // Nettoyer le formulaire
+      selectedMood.value = null;
+      cardText.value = "";
+      isCreating.value = false;
+    };
+
+    const changeUser = () => {
+      router.push("/");
+    };
+
+    const formatTime = (timestamp) => {
+      const now = new Date();
+      const cardTime = new Date(timestamp);
+      const diffInMs = now - cardTime;
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+      if (diffInMinutes < 1) return "Just now";
+      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+      if (diffInHours < 24) return `${diffInHours}h ago`;
+      if (diffInDays === 1) return "Yesterday";
+      if (diffInDays < 7) return `${diffInDays} days ago`;
+
+      // For older dates, show actual date
+      const options = {
+        month: "short",
+        day: "numeric",
+      };
+      if (cardTime.getFullYear() !== now.getFullYear()) {
+        options.year = "numeric";
+      }
+      return cardTime.toLocaleDateString("en-US", options);
+    };
+
+    const startEditing = (card) => {
+      if (card.isProcessing) return;
+
+      console.log("Editing card:", card); // Debug
+
+      editingCard.value = card;
+      editText.value = card.text;
+      editMood.value = card.mood;
+    };
+
+    const cancelEditing = () => {
+      editingCard.value = null;
+      editText.value = "";
+      editMood.value = null;
+    };
+
+    const saveEdit = async () => {
+      if (!editingCard.value || !editMood.value || !editText.value.trim())
+        return;
+
+      // Utiliser le bon identifiant pour trouver la card
+      const cardIndex = cards.value.findIndex((card) => {
+        if (editingCard.value.firebaseId) {
+          return card.firebaseId === editingCard.value.firebaseId;
+        }
+        return card.id === editingCard.value.id;
+      });
+
+      if (cardIndex === -1) {
+        console.error("Card not found for editing");
         return;
       }
 
-      if (firebaseCards) {
-        // Fusionner avec les données locales
+      const updatedCard = {
+        ...cards.value[cardIndex],
+        text: editText.value.trim(),
+        mood: editMood.value,
+        editedAt: new Date(),
+      };
+
+      // Mettre à jour localement
+      cards.value[cardIndex] = updatedCard;
+      saveCardsLocally(cards.value);
+
+      // Mettre à jour sur Firebase si possible
+      if (updatedCard.firebaseId) {
+        try {
+          syncStatus.value = "syncing";
+          await firebaseService.updateCard(updatedCard.firebaseId, {
+            text: updatedCard.text,
+            mood: updatedCard.mood,
+            editedAt: updatedCard.editedAt,
+          });
+          syncStatus.value = "synced";
+        } catch (error) {
+          console.error("Erreur mise à jour Firebase:", error);
+          syncStatus.value = "error";
+        }
+      }
+
+      cancelEditing();
+    };
+
+    const deleteCard = async (card) => {
+      if (!confirm("Es-tu sûr de vouloir supprimer cette card ?")) return;
+
+      console.log("Deleting card:", card); // Debug
+
+      // Utiliser le bon identifiant pour trouver la card
+      const cardIndex = cards.value.findIndex((c) => {
+        if (card.firebaseId) {
+          return c.firebaseId === card.firebaseId;
+        }
+        return c.id === card.id;
+      });
+
+      if (cardIndex === -1) {
+        console.error("Card not found for deletion");
+        return;
+      }
+
+      // Supprimer localement
+      cards.value.splice(cardIndex, 1);
+      saveCardsLocally(cards.value);
+
+      // Supprimer sur Firebase si possible
+      if (card.firebaseId) {
+        try {
+          syncStatus.value = "syncing";
+          await firebaseService.deleteCard(card.firebaseId);
+          syncStatus.value = "synced";
+        } catch (error) {
+          console.error("Erreur suppression Firebase:", error);
+          syncStatus.value = "error";
+        }
+      }
+    };
+
+    const syncWithFirebase = async () => {
+      try {
+        syncStatus.value = "syncing";
+
+        // Charger les données locales
         const localCards = loadCards();
-        const merged = mergeCards(firebaseCards, localCards);
-        cards.value = merged;
+
+        // Charger depuis Firebase
+        const firebaseCards = await firebaseService.loadCards();
+
+        if (firebaseCards.length === 0 && localCards.length > 0) {
+          // Migrer les données locales vers Firebase
+          console.log("Migration des données locales vers Firebase...");
+          await firebaseService.migrateLocalData(localCards);
+
+          // Recharger depuis Firebase après migration
+          const migratedCards = await firebaseService.loadCards();
+          cards.value = migratedCards;
+        } else {
+          // Fusionner les données Firebase avec les données locales non synchronisées
+          const mergedCards = mergeCards(firebaseCards, localCards);
+          cards.value = mergedCards;
+        }
+
         saveCardsLocally(cards.value);
         syncStatus.value = "synced";
+      } catch (error) {
+        console.error("Erreur de synchronisation:", error);
+        syncStatus.value = "error";
+
+        // Fallback sur les données locales
+        cards.value = loadCards();
       }
-    }
-  );
+    };
 
-  // Générer les éléments de fond
-  generateStars();
-  generateShapes();
+    const mergeCards = (firebaseCards, localCards) => {
+      console.log("Merging cards:", { firebaseCards, localCards });
 
-  // CSS dynamique pour les animations
-  const style = document.createElement("style");
-  let css = "";
-  shapes.value.forEach((shape) => {
-    css += `
-    @keyframes float-${shape.id} {
-      0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-      25% { transform: translateY(-15px) translateX(8px) rotate(90deg); }
-      50% { transform: translateY(-8px) translateX(-12px) rotate(180deg); }
-      75% { transform: translateY(-20px) translateX(4px) rotate(270deg); }
-    }`;
-  });
-  style.textContent = css;
-  document.head.appendChild(style);
+      // Créer une Map des cards Firebase par firebaseId
+      const firebaseMap = new Map();
+      firebaseCards.forEach((card) => {
+        if (card.firebaseId) {
+          firebaseMap.set(card.firebaseId, card);
+        }
+      });
 
-  // Écouter les changements de connexion
-  window.addEventListener("online", updateOnlineStatus);
-  window.addEventListener("offline", updateOnlineStatus);
-  updateOnlineStatus();
-});
+      // Ajouter les cards locales qui n'ont pas d'équivalent Firebase
+      const localOnlyCards = localCards.filter((localCard) => {
+        // Si la card locale a un firebaseId, vérifier qu'elle n'existe pas déjà
+        if (localCard.firebaseId) {
+          return !firebaseMap.has(localCard.firebaseId);
+        }
+        // Si pas de firebaseId, c'est une card locale uniquement
+        return true;
+      });
 
-onUnmounted(() => {
-  if (unsubscribeFirebase.value) {
-    unsubscribeFirebase.value();
-  }
+      // Combiner et trier par timestamp
+      const merged = [...firebaseCards, ...localOnlyCards].sort(
+        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+      );
 
-  window.removeEventListener("online", updateOnlineStatus);
-  window.removeEventListener("offline", updateOnlineStatus);
-});
+      console.log("Merged result:", merged);
+      return merged;
+    };
 
-// Retry pour la synchronisation
-const retrySync = async () => {
-  if (!isOnline.value) {
-    alert("Pas de connexion internet");
-    return;
-  }
+    const updateOnlineStatus = () => {
+      isOnline.value = navigator.onLine;
+      if (!isOnline.value) {
+        syncStatus.value = "offline";
+      }
+    };
 
-  await syncWithFirebase();
-};
+    onMounted(async () => {
+      // Charger l'utilisateur actuel
+      currentUser.value = loadCurrentUser();
+      console.log("Current user loaded:", currentUser.value); // Debug
 
+      if (!currentUser.value) {
+        console.log("No current user, redirecting to /"); // Debug
+        router.push("/");
+        return;
+      }
 
-export default {
-  setup() {
+      // Vérifier le type d'avatar (base64 ou chemin de fichier)
+      if (currentUser.value.avatar) {
+        if (currentUser.value.avatar.startsWith("data:image/")) {
+          // C'est déjà une image base64, pas besoin de modification
+          console.log("Avatar is base64 data"); // Debug
+        } else if (!currentUser.value.avatar.startsWith("/")) {
+          // C'est un nom de fichier, ajouter le chemin
+          currentUser.value.avatar = `/assets/pfp/${currentUser.value.avatar}`;
+          console.log("Updated avatar path:", currentUser.value.avatar); // Debug
+        }
+      }
+
+      // Synchronisation initiale
+      await syncWithFirebase();
+
+      // Écouter les changements en temps réel
+      unsubscribeFirebase.value = firebaseService.onCardsChange(
+        (firebaseCards, error) => {
+          if (error) {
+            console.error("Erreur temps réel Firebase:", error);
+            syncStatus.value = "error";
+            return;
+          }
+
+          if (firebaseCards) {
+            // Fusionner avec les données locales
+            const localCards = loadCards();
+            const merged = mergeCards(firebaseCards, localCards);
+            cards.value = merged;
+            saveCardsLocally(cards.value);
+            syncStatus.value = "synced";
+          }
+        }
+      );
+
+      // Générer les éléments de fond
+      generateStars();
+      generateShapes();
+
+      // CSS dynamique pour les animations
+      const style = document.createElement("style");
+      let css = "";
+      shapes.value.forEach((shape) => {
+        css += `
+          @keyframes float-${shape.id} {
+            0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+            25% { transform: translateY(-15px) translateX(8px) rotate(90deg); }
+            50% { transform: translateY(-8px) translateX(-12px) rotate(180deg); }
+            75% { transform: translateY(-20px) translateX(4px) rotate(270deg); }
+          }`;
+      });
+      style.textContent = css;
+      document.head.appendChild(style);
+
+      // Écouter les changements de connexion
+      window.addEventListener("online", updateOnlineStatus);
+      window.addEventListener("offline", updateOnlineStatus);
+      updateOnlineStatus();
+    });
+
+    onUnmounted(() => {
+      if (unsubscribeFirebase.value) {
+        unsubscribeFirebase.value();
+      }
+
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    });
+
+    // Retry pour la synchronisation
+    const retrySync = async () => {
+      if (!isOnline.value) {
+        alert("Pas de connexion internet");
+        return;
+      }
+
+      await syncWithFirebase();
+    };
+
+    // Handle image loading errors
+    const handleImageError = (event) => {
+      console.error("Image failed to load:", event.target.src);
+      event.target.style.display = "none";
+    };
+
     return {
       // State
       currentUser,
@@ -895,10 +942,10 @@ export default {
       isOnline,
       syncStatus,
       moods,
-      
+
       // Computed
       canCreateCard,
-      
+
       // Methods
       getCardKey,
       createCard,
@@ -909,6 +956,7 @@ export default {
       saveEdit,
       deleteCard,
       retrySync,
+      handleImageError,
     };
   },
 };
