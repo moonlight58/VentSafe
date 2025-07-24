@@ -602,7 +602,7 @@ export default {
         isProcessing: true,
       };
 
-      // Add locally first for fast UX
+      // Add locally first for fast UX (this is important!)
       cards.value.unshift(newCard);
       saveCardsLocally(cards.value);
 
@@ -715,9 +715,9 @@ export default {
         editedAt: new Date(),
       };
 
-      // Mettre à jour localement
+      // Mettre à jour localement FIRST
       cards.value[cardIndex] = updatedCard;
-      saveCardsLocally(cards.value);
+      saveCardsLocally(cards.value); // IMPORTANT: Remettre cette ligne
 
       // Mettre à jour sur Firebase si possible
       if (updatedCard.firebaseId) {
@@ -756,9 +756,9 @@ export default {
         return;
       }
 
-      // Supprimer localement
+      // Supprimer localement FIRST
       cards.value.splice(cardIndex, 1);
-      saveCardsLocally(cards.value);
+      saveCardsLocally(cards.value); // IMPORTANT: Remettre cette ligne
 
       // Supprimer sur Firebase si possible
       if (card.firebaseId) {
@@ -797,7 +797,6 @@ export default {
           cards.value = mergedCards;
         }
 
-        saveCardsLocally(cards.value);
         syncStatus.value = "synced";
       } catch (error) {
         console.error("Erreur de synchronisation:", error);
@@ -885,7 +884,6 @@ export default {
             const localCards = loadCards();
             const merged = mergeCards(firebaseCards, localCards);
             cards.value = merged;
-            saveCardsLocally(cards.value);
             syncStatus.value = "synced";
           }
         }
