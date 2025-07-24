@@ -289,8 +289,9 @@
               <!-- Edit Mode -->
               <div
                 v-if="
-                  editingCard?.firebaseId === card.firebaseId ||
-                  editingCard?.id === card.id
+                  !card.isProcessing &&
+                  (editingCard?.firebaseId === card.firebaseId ||
+                    editingCard?.id === card.id)
                 "
                 class="edit-mode"
               >
@@ -579,11 +580,18 @@ export default {
     const createCard = async () => {
       if (!canCreateCard.value) return;
 
+      // Clear any existing editing state before creating new card
+      editingCard.value = null;
+      editText.value = "";
+      editMood.value = null;
+
       isCreating.value = true;
       syncStatus.value = "syncing";
 
-      // Générer un ID temporaire unique
-      const tempId = `temp-${Date.now()}-${Math.random()}`;
+      // Generate a more unique temporary ID
+      const tempId = `temp-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
 
       const newCard = {
         id: tempId,
@@ -594,39 +602,45 @@ export default {
         isProcessing: true,
       };
 
-      // Ajouter localement d'abord pour UX rapide
+      // Add locally first for fast UX
       cards.value.unshift(newCard);
       saveCardsLocally(cards.value);
 
       try {
-        // Sauvegarder sur Firebase
+        // Save to Firebase
         const firebaseId = await firebaseService.saveCard(newCard);
 
-        // Mettre à jour avec l'ID Firebase
+        // Update with Firebase ID
         const cardIndex = cards.value.findIndex((card) => card.id === tempId);
         if (cardIndex !== -1) {
-          cards.value[cardIndex].firebaseId = firebaseId;
-          cards.value[cardIndex].isProcessing = false;
+          cards.value[cardIndex] = {
+            ...cards.value[cardIndex],
+            firebaseId: firebaseId,
+            isProcessing: false,
+          };
           saveCardsLocally(cards.value);
         }
 
         syncStatus.value = "synced";
-        console.log("Card sauvegardée sur Firebase:", firebaseId);
+        console.log("Card saved to Firebase:", firebaseId);
       } catch (error) {
-        console.error("Erreur Firebase, card gardée localement:", error);
+        console.error("Firebase error, keeping card locally:", error);
         syncStatus.value = "error";
 
-        // Simuler le processing local
+        // Simulate local processing
         setTimeout(() => {
           const cardIndex = cards.value.findIndex((card) => card.id === tempId);
           if (cardIndex !== -1) {
-            cards.value[cardIndex].isProcessing = false;
+            cards.value[cardIndex] = {
+              ...cards.value[cardIndex],
+              isProcessing: false,
+            };
             saveCardsLocally(cards.value);
           }
         }, 3000);
       }
 
-      // Nettoyer le formulaire
+      // Clean up form
       selectedMood.value = null;
       cardText.value = "";
       isCreating.value = false;
