@@ -217,6 +217,26 @@
               </div>
             </div>
 
+            <!-- Processing Time Selection -->
+            <div class="processing-time-section">
+              <label class="input-label">Processing time before others can see this</label>
+              <div class="time-options">
+                <button
+                  v-for="timeOption in processingTimeOptions"
+                  :key="timeOption.value"
+                  @click="selectedProcessingTime = timeOption"
+                  class="time-btn"
+                  :class="{ selected: selectedProcessingTime?.value === timeOption.value }"
+                >
+                  <span class="time-icon">{{ timeOption.icon }}</span>
+                  <div class="time-info">
+                    <span class="time-label">{{ timeOption.label }}</span>
+                    <span class="time-description">{{ timeOption.description }}</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <!-- Create Button -->
             <button
               @click="createCard"
@@ -280,16 +300,31 @@
               :key="getCardKey(card)"
               class="timeline-card"
               :class="{
-                processing: card.isProcessing,
-                editing:
-                  editingCard?.firebaseId === card.firebaseId ||
-                  editingCard?.id === card.id,
+                processing: isCardProcessing(card),
+                editing: editingCard?.firebaseId === card.firebaseId || editingCard?.id === card.id,
+                'processing-time': isCardInProcessingTime(card)
               }"
             >
+              <!-- Processing Time Status -->
+              <div v-if="isCardInProcessingTime(card)" class="processing-time-status">
+                <div class="processing-time-info">
+                  <svg class="processing-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12,6 12,12 16,14"/>
+                  </svg>
+                  <span>{{ getProcessingTimeRemaining(card) }} until visible to others</span>
+                </div>
+                <div class="processing-actions">
+                  <button @click="makeVisibleNow(card)" class="make-visible-btn">
+                    Make visible now
+                  </button>
+                </div>
+              </div>
+
               <!-- Edit Mode -->
               <div
                 v-if="
-                  !card.isProcessing &&
+                  !isCardProcessing(card) &&
                   (editingCard?.firebaseId === card.firebaseId ||
                     editingCard?.id === card.id)
                 "
@@ -364,7 +399,7 @@
                   <span class="card-mood">{{ card.mood.emoji }}</span>
 
                   <!-- Card Actions -->
-                  <div v-if="!card.isProcessing" class="card-actions">
+                  <div v-if="!isCardProcessing(card)" class="card-actions">
                     <button
                       @click="startEditing(card)"
                       class="action-btn edit-btn"
@@ -415,7 +450,7 @@
                 </div>
               </div>
 
-              <div v-if="card.isProcessing" class="processing-overlay">
+              <div v-if="isCardProcessing(card)" class="processing-overlay">
                 <div class="processing-text">Processing...</div>
               </div>
             </div>
@@ -443,6 +478,7 @@ export default {
     const selectedMood = ref(null);
     const cardText = ref("");
     const isCreating = ref(false);
+    const selectedProcessingTime = ref(null);
 
     // Timeline state
     const cards = ref([]);
@@ -458,6 +494,9 @@ export default {
     const isOnline = ref(true);
     const syncStatus = ref("synced"); // 'syncing', 'synced', 'error', 'offline'
     const unsubscribeFirebase = ref(null);
+
+    // Processing time intervals for cleanup
+    const processingTimeIntervals = ref(new Map());
 
     // Available moods
     const moods = ref([
@@ -503,18 +542,167 @@ export default {
       },
     ]);
 
+    // Processing time options
+    const processingTimeOptions = ref([
+      {
+        value: 0,
+        label: "Immediate",
+        description: "Visible right away",
+        icon: "⚡"
+      },
+      {
+        value: 5,
+        label: "5 minutes",
+        description: "Quick reflection time",
+        icon: "⏱️"
+      },
+      {
+        value: 15,
+        label: "15 minutes",
+        description: "Short processing time",
+        icon: "🕐"
+      },
+      {
+        value: 30,
+        label: "30 minutes",
+        description: "Medium reflection",
+        icon: "🕕"
+      },
+      {
+        value: 60,
+        label: "1 hour",
+        description: "Deep processing time",
+        icon: "⏰"
+      },
+      {
+        value: 180,
+        label: "3 hours",
+        description: "Extended reflection",
+        icon: "🕘"
+      },
+      {
+        value: 1440,
+        label: "24 hours",
+        description: "Full day to process",
+        icon: "📅"
+      }
+    ]);
+
+    // Set default processing time
+    onMounted(() => {
+      selectedProcessingTime.value = processingTimeOptions.value[2]; // 15 minutes default
+    });
+
     // Computed properties
     const canCreateCard = computed(() => {
       return (
         selectedMood.value &&
         cardText.value.trim().length > 0 &&
-        cardText.value.length <= 300
+        cardText.value.length <= 300 &&
+        selectedProcessingTime.value !== null
       );
     });
 
     // Helper function for card keys
     const getCardKey = (card) => {
       return card.firebaseId || `local-${card.id}`;
+    };
+
+    // Check if card is in processing phase (creation)
+    const isCardProcessing = (card) => {
+      return card.isProcessing === true;
+    };
+
+    // Check if card is in processing time (waiting period)
+    const isCardInProcessingTime = (card) => {
+      if (!card.processingUntil) return false;
+      return new Date() < new Date(card.processingUntil);
+    };
+
+    // Get remaining processing time
+    const getProcessingTimeRemaining = (card) => {
+      if (!card.processingUntil) return "";
+      
+      const now = new Date();
+      const until = new Date(card.processingUntil);
+      const diffMs = until - now;
+      
+      if (diffMs <= 0) return "";
+      
+      const minutes = Math.ceil(diffMs / (1000 * 60));
+      
+      if (minutes < 60) {
+        return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+      } else {
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        if (remainingMinutes === 0) {
+          return `${hours} hour${hours > 1 ? 's' : ''}`;
+        } else {
+          return `${hours}h ${remainingMinutes}m`;
+        }
+      }
+    };
+
+    // Make card visible immediately
+    const makeVisibleNow = async (card) => {
+      const cardIndex = cards.value.findIndex(c => 
+        (card.firebaseId && c.firebaseId === card.firebaseId) || 
+        (card.id && c.id === card.id)
+      );
+      
+      if (cardIndex === -1) return;
+      
+      // Remove processing time
+      cards.value[cardIndex].processingUntil = null;
+      
+      // Save locally
+      saveCardsLocally(cards.value);
+      
+      // Update Firebase if possible
+      if (card.firebaseId) {
+        try {
+          syncStatus.value = "syncing";
+          await firebaseService.updateCard(card.firebaseId, {
+            processingUntil: null
+          });
+          syncStatus.value = "synced";
+        } catch (error) {
+          console.error("Error updating Firebase:", error);
+          syncStatus.value = "error";
+        }
+      }
+      
+      // Clear any existing interval for this card
+      const intervalKey = card.firebaseId || card.id;
+      if (processingTimeIntervals.value.has(intervalKey)) {
+        clearInterval(processingTimeIntervals.value.get(intervalKey));
+        processingTimeIntervals.value.delete(intervalKey);
+      }
+    };
+
+    // Setup processing time countdown
+    const setupProcessingTimeCountdown = (card) => {
+      if (!card.processingUntil) return;
+      
+      const intervalKey = card.firebaseId || card.id;
+      
+      // Clear existing interval if any
+      if (processingTimeIntervals.value.has(intervalKey)) {
+        clearInterval(processingTimeIntervals.value.get(intervalKey));
+      }
+      
+      const interval = setInterval(() => {
+        if (!isCardInProcessingTime(card)) {
+          clearInterval(interval);
+          processingTimeIntervals.value.delete(intervalKey);
+          
+          // Force reactivity update
+          cards.value = [...cards.value];
+        }
+      }, 60000); // Check every minute
+      
+      processingTimeIntervals.value.set(intervalKey, interval);
     };
 
     // Storage functions
@@ -536,6 +724,7 @@ export default {
             ...card,
             timestamp: new Date(card.timestamp),
             editedAt: card.editedAt ? new Date(card.editedAt) : null,
+            processingUntil: card.processingUntil ? new Date(card.processingUntil) : null,
           }))
         : [];
     };
@@ -545,6 +734,7 @@ export default {
         ...card,
         timestamp: card.timestamp.toISOString(),
         editedAt: card.editedAt ? card.editedAt.toISOString() : null,
+        processingUntil: card.processingUntil ? card.processingUntil.toISOString() : null,
       }));
       localStorage.setItem("ventingCards", JSON.stringify(cardsForStorage));
     };
@@ -593,12 +783,19 @@ export default {
         .toString(36)
         .substr(2, 9)}`;
 
+      // Calculate processing until time
+      const processingUntil = selectedProcessingTime.value.value > 0 
+        ? new Date(Date.now() + selectedProcessingTime.value.value * 60 * 1000)
+        : null;
+
       const newCard = {
         id: tempId,
         user: currentUser.value,
         mood: selectedMood.value,
         text: cardText.value.trim(),
         timestamp: new Date(),
+        processingUntil: processingUntil,
+        processingTimeMinutes: selectedProcessingTime.value.value,
         isProcessing: true,
       };
 
@@ -610,18 +807,20 @@ export default {
         // Save to Firebase
         const firebaseId = await firebaseService.saveCard(newCard);
 
-        // CORRECTION: Mettre à jour la card existante au lieu d'en créer une nouvelle
+        // Update the card with Firebase ID
         const cardIndex = cards.value.findIndex((card) => card.id === tempId);
         if (cardIndex !== -1) {
-          // Mettre à jour la card existante avec l'ID Firebase
           cards.value[cardIndex] = {
             ...cards.value[cardIndex],
             firebaseId: firebaseId,
             isProcessing: false,
-            // IMPORTANT: Garder l'ID temporaire pour éviter les conflits
-            // L'ID temporaire sera utilisé jusqu'à ce que le listener Firebase prenne le relais
           };
           saveCardsLocally(cards.value);
+          
+          // Setup processing time countdown if needed
+          if (processingUntil) {
+            setupProcessingTimeCountdown(cards.value[cardIndex]);
+          }
         }
 
         syncStatus.value = "synced";
@@ -639,6 +838,11 @@ export default {
               isProcessing: false,
             };
             saveCardsLocally(cards.value);
+            
+            // Setup processing time countdown if needed
+            if (processingUntil) {
+              setupProcessingTimeCountdown(cards.value[cardIndex]);
+            }
           }
         }, 3000);
       }
@@ -646,6 +850,7 @@ export default {
       // Clean up form
       selectedMood.value = null;
       cardText.value = "";
+      selectedProcessingTime.value = processingTimeOptions.value[2]; // Reset to default
       isCreating.value = false;
     };
 
@@ -666,31 +871,18 @@ export default {
       if (diffInHours < 24) return `${diffInHours}h ago`;
       if (diffInDays === 1) return "Yesterday";
       if (diffInDays < 7) return `${diffInDays} days ago`;
-
-      // For older dates, show actual date
-      const options = {
-        month: "short",
-        day: "numeric",
-      };
-      if (cardTime.getFullYear() !== now.getFullYear()) {
-        options.year = "numeric";
-      }
-      return cardTime.toLocaleDateString("en-US", options);
+      if (diffInDays < 30) return `${diffInDays} days ago`;
+      return cardTime.toLocaleDateString();
     };
 
+    // Edit functionality
     const startEditing = (card) => {
-      if (card.isProcessing) return;
-
-      console.log("Starting to edit card:", card); // Debug
-      console.log("Card firebaseId:", card.firebaseId); // Debug
-      console.log("Card id:", card.id); // Debug
-
-      // Stocker la référence exacte de la carte
+      // Ne pas permettre l'édition des cartes en cours de traitement
+      if (isCardProcessing(card)) return;
+      
       editingCard.value = card;
       editText.value = card.text;
       editMood.value = card.mood;
-
-      console.log("editingCard.value set to:", editingCard.value); // Debug
     };
 
     const cancelEditing = () => {
@@ -700,413 +892,266 @@ export default {
     };
 
     const saveEdit = async () => {
-      if (!editingCard.value || !editMood.value || !editText.value.trim())
-        return;
+      if (!editingCard.value || !editMood.value || !editText.value.trim()) return;
 
-      console.log("Saving edit for card:", editingCard.value); // Debug
+      const cardToEdit = editingCard.value;
+      const cardIndex = cards.value.findIndex(c => 
+        (cardToEdit.firebaseId && c.firebaseId === cardToEdit.firebaseId) || 
+        (cardToEdit.id && c.id === cardToEdit.id)
+      );
 
-      // Utiliser le bon identifiant pour trouver la card
-      const cardIndex = cards.value.findIndex((card) => {
-        // D'abord essayer par firebaseId si il existe
-        if (editingCard.value.firebaseId && card.firebaseId) {
-          return card.firebaseId === editingCard.value.firebaseId;
-        }
-        // Sinon par l'ID temporaire
-        if (editingCard.value.id && card.id) {
-          return card.id === editingCard.value.id;
-        }
-        return false;
-      });
+      if (cardIndex === -1) return;
 
-      console.log("Found card at index:", cardIndex); // Debug
-      console.log("Current cards array:", cards.value); // Debug
+      syncStatus.value = "syncing";
 
-      if (cardIndex === -1) {
-        console.error("Card not found for editing");
-        console.error("Looking for:", editingCard.value);
-        console.error("In cards:", cards.value);
-        return;
-      }
+      // Mettre à jour localement
+      const updatedCard = {
+        ...cards.value[cardIndex],
+        mood: editMood.value,
+        text: editText.value.trim(),
+        editedAt: new Date()
+      };
 
-      // IMPORTANT: Modifier la carte existante, ne pas en créer une nouvelle
-      const existingCard = cards.value[cardIndex];
-
-      // Mettre à jour seulement les champs modifiés
-      existingCard.text = editText.value.trim();
-      existingCard.mood = editMood.value;
-      existingCard.editedAt = new Date();
-
-      console.log("Updated card:", existingCard); // Debug
-
-      // Sauvegarder localement
+      cards.value[cardIndex] = updatedCard;
       saveCardsLocally(cards.value);
 
-      // Mettre à jour sur Firebase si possible
-      if (existingCard.firebaseId) {
+      // Tenter de sauvegarder sur Firebase
+      if (cardToEdit.firebaseId) {
         try {
-          syncStatus.value = "syncing";
-          await firebaseService.updateCard(existingCard.firebaseId, {
-            text: existingCard.text,
-            mood: existingCard.mood,
-            editedAt: existingCard.editedAt,
+          await firebaseService.updateCard(cardToEdit.firebaseId, {
+            mood: editMood.value,
+            text: editText.value.trim(),
+            editedAt: new Date().toISOString()
           });
           syncStatus.value = "synced";
-          console.log("Firebase update successful"); // Debug
         } catch (error) {
-          console.error("Erreur mise à jour Firebase:", error);
+          console.error("Error updating card on Firebase:", error);
           syncStatus.value = "error";
         }
+      } else {
+        syncStatus.value = "synced";
       }
 
+      // Nettoyer l'état d'édition
       cancelEditing();
     };
 
-    const cleanupDuplicateCards = () => {
-      const cards = loadCards();
-      const cleanedCards = [];
-      const seenFirebaseIds = new Set();
-      const seenLocalCards = new Set();
-
-      cards.forEach((card) => {
-        // Si la carte a un firebaseId
-        if (card.firebaseId) {
-          if (!seenFirebaseIds.has(card.firebaseId)) {
-            seenFirebaseIds.add(card.firebaseId);
-            cleanedCards.push(card);
-          } else {
-            console.log("Removing duplicate Firebase card:", card.firebaseId);
-          }
-        }
-        // Si c'est une carte temporaire/locale
-        else if (card.id) {
-          // Créer une clé unique basée sur le contenu pour détecter les vrais doublons
-          const contentKey = `${card.text}-${card.mood.id}-${new Date(
-            card.timestamp
-          ).getTime()}`;
-
-          if (!seenLocalCards.has(contentKey)) {
-            seenLocalCards.add(contentKey);
-            cleanedCards.push(card);
-          } else {
-            console.log("Removing duplicate local card:", card.id);
-          }
-        }
-      });
-
-      if (cleanedCards.length !== cards.length) {
-        console.log(
-          `Cleaned up ${cards.length - cleanedCards.length} duplicate cards`
-        );
-        saveCardsLocally(cleanedCards);
-        return cleanedCards;
-      }
-
-      return cards;
-    };
-
-    const setupFirebaseListener = () => {
-      unsubscribeFirebase.value = firebaseService.onCardsChange(
-        (firebaseCards, error) => {
-          if (error) {
-            console.error("Erreur temps réel Firebase:", error);
-            syncStatus.value = "error";
-            return;
-          }
-
-          if (firebaseCards) {
-            // Au lieu de merger systématiquement, remplacer les cards qui ont un firebaseId
-            const currentCards = [...cards.value];
-
-            firebaseCards.forEach((firebaseCard) => {
-              if (firebaseCard.firebaseId) {
-                // Chercher si une card locale correspond (par firebaseId ou par contenu récent)
-                const localIndex = currentCards.findIndex((localCard) => {
-                  // Correspondance directe par firebaseId
-                  if (localCard.firebaseId === firebaseCard.firebaseId) {
-                    return true;
-                  }
-
-                  // Correspondance par contenu pour les cards récemment créées
-                  if (!localCard.firebaseId && localCard.isProcessing) {
-                    return (
-                      localCard.text === firebaseCard.text &&
-                      localCard.mood.id === firebaseCard.mood.id &&
-                      Math.abs(
-                        new Date(localCard.timestamp) -
-                          new Date(firebaseCard.timestamp)
-                      ) < 10000
-                    ); // 10 secondes
-                  }
-
-                  return false;
-                });
-
-                if (localIndex !== -1) {
-                  // Remplacer la card locale par la card Firebase
-                  currentCards[localIndex] = firebaseCard;
-                } else {
-                  // Ajouter la nouvelle card Firebase
-                  currentCards.unshift(firebaseCard);
-                }
-              }
-            });
-
-            // Trier et mettre à jour
-            cards.value = currentCards.sort(
-              (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-            );
-
-            // Sauvegarder localement
-            saveCardsLocally(cards.value);
-            syncStatus.value = "synced";
-          }
-        }
-      );
-    };
-
+    // Delete functionality
     const deleteCard = async (card) => {
-      if (!confirm("Es-tu sûr de vouloir supprimer cette card ?")) return;
-
-      console.log("Deleting card:", card); // Debug
-
-      // Utiliser le bon identifiant pour trouver la card
-      const cardIndex = cards.value.findIndex((c) => {
-        if (card.firebaseId) {
-          return c.firebaseId === card.firebaseId;
-        }
-        return c.id === card.id;
-      });
-
-      if (cardIndex === -1) {
-        console.error("Card not found for deletion");
+      // Confirmation avant suppression
+      if (!confirm("Êtes-vous sûr de vouloir supprimer cette carte ? Cette action est irréversible.")) {
         return;
       }
 
-      // Supprimer localement FIRST
-      cards.value.splice(cardIndex, 1);
-      saveCardsLocally(cards.value); // IMPORTANT: Remettre cette ligne
+      syncStatus.value = "syncing";
 
-      // Supprimer sur Firebase si possible
+      // Supprimer localement
+      const cardIndex = cards.value.findIndex(c => 
+        (card.firebaseId && c.firebaseId === card.firebaseId) || 
+        (card.id && c.id === card.id)
+      );
+
+      if (cardIndex !== -1) {
+        cards.value.splice(cardIndex, 1);
+        saveCardsLocally(cards.value);
+      }
+
+      // Nettoyer les intervalles de temps de traitement
+      const intervalKey = card.firebaseId || card.id;
+      if (processingTimeIntervals.value.has(intervalKey)) {
+        clearInterval(processingTimeIntervals.value.get(intervalKey));
+        processingTimeIntervals.value.delete(intervalKey);
+      }
+
+      // Supprimer de Firebase si elle existe
       if (card.firebaseId) {
         try {
-          syncStatus.value = "syncing";
           await firebaseService.deleteCard(card.firebaseId);
           syncStatus.value = "synced";
         } catch (error) {
-          console.error("Erreur suppression Firebase:", error);
+          console.error("Error deleting card from Firebase:", error);
           syncStatus.value = "error";
         }
-      }
-    };
-
-    const syncWithFirebase = async () => {
-      try {
-        syncStatus.value = "syncing";
-
-        // Charger les données locales
-        const localCards = loadCards();
-
-        // Charger depuis Firebase
-        const firebaseCards = await firebaseService.loadCards();
-
-        if (firebaseCards.length === 0 && localCards.length > 0) {
-          // Migrer les données locales vers Firebase
-          console.log("Migration des données locales vers Firebase...");
-          await firebaseService.migrateLocalData(localCards);
-
-          // Recharger depuis Firebase après migration
-          const migratedCards = await firebaseService.loadCards();
-          cards.value = migratedCards;
-        } else {
-          // Fusionner les données Firebase avec les données locales non synchronisées
-          const mergedCards = mergeCards(firebaseCards, localCards);
-          cards.value = mergedCards;
-        }
-
+      } else {
         syncStatus.value = "synced";
-      } catch (error) {
-        console.error("Erreur de synchronisation:", error);
-        syncStatus.value = "error";
+      }
 
-        // Fallback sur les données locales
-        cards.value = loadCards();
+      // Annuler l'édition si on était en train d'éditer cette carte
+      if (editingCard.value && 
+          ((card.firebaseId && editingCard.value.firebaseId === card.firebaseId) ||
+           (card.id && editingCard.value.id === card.id))) {
+        cancelEditing();
       }
     };
 
-    const mergeCards = (firebaseCards, localCards) => {
-      console.log("Merging cards:", { firebaseCards, localCards });
-
-      // Créer une Map des cards Firebase par firebaseId
-      const firebaseMap = new Map();
-      const mergedCards = [];
-
-      // D'abord, ajouter toutes les cards Firebase
-      firebaseCards.forEach((card) => {
-        if (card.firebaseId) {
-          firebaseMap.set(card.firebaseId, card);
-          mergedCards.push(card);
-        }
-      });
-
-      // Ensuite, ajouter seulement les cards locales qui n'ont PAS d'équivalent Firebase
-      localCards.forEach((localCard) => {
-        // Si la card locale a un firebaseId et qu'elle existe déjà dans Firebase, l'ignorer
-        if (localCard.firebaseId && firebaseMap.has(localCard.firebaseId)) {
-          console.log(
-            "Skipping duplicate card with firebaseId:",
-            localCard.firebaseId
-          );
-          return;
-        }
-
-        // Si c'est une card temporaire (en cours de processing), la garder
-        if (!localCard.firebaseId && localCard.isProcessing) {
-          mergedCards.push(localCard);
-          return;
-        }
-
-        // Si c'est une card locale sans firebaseId et pas en processing,
-        // vérifier qu'elle n'existe pas déjà par contenu (au cas où)
-        if (!localCard.firebaseId && !localCard.isProcessing) {
-          const isDuplicate = mergedCards.some(
-            (card) =>
-              card.text === localCard.text &&
-              card.mood.id === localCard.mood.id &&
-              Math.abs(
-                new Date(card.timestamp) - new Date(localCard.timestamp)
-              ) < 5000 // 5 secondes de tolérance
-          );
-
-          if (!isDuplicate) {
-            mergedCards.push(localCard);
-          } else {
-            console.log("Skipping duplicate local card:", localCard);
-          }
-        }
-      });
-
-      // Trier par timestamp
-      const sorted = mergedCards.sort(
-        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-      );
-
-      console.log("Merged result:", sorted);
-      return sorted;
-    };
-
+    // Network status monitoring
     const updateOnlineStatus = () => {
       isOnline.value = navigator.onLine;
       if (!isOnline.value) {
         syncStatus.value = "offline";
+      } else if (syncStatus.value === "offline") {
+        syncStatus.value = "synced";
+        // Optionnellement, essayer de resynchroniser
+        syncPendingCards();
       }
     };
 
-    onMounted(async () => {
-      // Charger l'utilisateur actuel
-      currentUser.value = loadCurrentUser();
-      console.log("Current user loaded:", currentUser.value); // Debug
+    // Sync pending cards when back online
+    const syncPendingCards = async () => {
+      const cardsToSync = cards.value.filter(card => !card.firebaseId && !card.isProcessing);
+      
+      if (cardsToSync.length === 0) return;
 
-      if (!currentUser.value) {
-        console.log("No current user, redirecting to /"); // Debug
+      syncStatus.value = "syncing";
+
+      for (const card of cardsToSync) {
+        try {
+          const firebaseId = await firebaseService.saveCard(card);
+          
+          const cardIndex = cards.value.findIndex(c => c.id === card.id);
+          if (cardIndex !== -1) {
+            cards.value[cardIndex] = {
+              ...cards.value[cardIndex],
+              firebaseId: firebaseId
+            };
+          }
+        } catch (error) {
+          console.error("Error syncing card:", error);
+          syncStatus.value = "error";
+          return;
+        }
+      }
+
+      syncStatus.value = "synced";
+      saveCardsLocally(cards.value);
+    };
+
+    // Retry sync function
+    const retrySync = async () => {
+      if (!isOnline.value) {
+        syncStatus.value = "offline";
+        return;
+      }
+      
+      await syncPendingCards();
+    };
+
+    // Firebase real-time listener
+    const setupFirebaseListener = () => {
+      if (!currentUser.value) return;
+
+      try {
+        unsubscribeFirebase.value = firebaseService.listenToUserCards(
+          currentUser.value.id,
+          (updatedCards) => {
+            // Fusionner avec les cartes locales non synchronisées
+            const localCards = cards.value.filter(card => !card.firebaseId);
+            const firebaseCards = updatedCards.map(card => ({
+              ...card,
+              timestamp: new Date(card.timestamp),
+              editedAt: card.editedAt ? new Date(card.editedAt) : null,
+              processingUntil: card.processingUntil ? new Date(card.processingUntil) : null,
+            }));
+
+            // Combiner et trier
+            cards.value = [...localCards, ...firebaseCards].sort(
+              (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            // Configurer les comptes à rebours pour les cartes avec temps de traitement
+            cards.value.forEach(card => {
+              if (card.processingUntil && isCardInProcessingTime(card)) {
+                setupProcessingTimeCountdown(card);
+              }
+            });
+
+            saveCardsLocally(cards.value);
+            
+            if (syncStatus.value !== "offline") {
+              syncStatus.value = "synced";
+            }
+          }
+        );
+      } catch (error) {
+        console.error("Error setting up Firebase listener:", error);
+        syncStatus.value = "error";
+      }
+    };
+
+    // Handle image errors
+    const handleImageError = (event) => {
+      console.log("Image failed to load:", event.target.src);
+      // L'image sera remplacée par le placeholder grâce au v-if/v-else
+    };
+
+    // Lifecycle hooks
+    onMounted(() => {
+      // Load user
+      const user = loadCurrentUser();
+      if (!user) {
         router.push("/");
         return;
       }
+      currentUser.value = user;
 
-      // Vérifier le type d'avatar (base64 ou chemin de fichier)
-      if (currentUser.value.avatar) {
-        if (currentUser.value.avatar.startsWith("data:image/")) {
-          // C'est déjà une image base64, pas besoin de modification
-          console.log("Avatar is base64 data"); // Debug
-        } else if (!currentUser.value.avatar.startsWith("/")) {
-          // C'est un nom de fichier, ajouter le chemin
-          currentUser.value.avatar = `/assets/pfp/${currentUser.value.avatar}`;
-          console.log("Updated avatar path:", currentUser.value.avatar); // Debug
+      // Load cards
+      cards.value = loadCards();
+
+      // Setup processing time countdowns for existing cards
+      cards.value.forEach(card => {
+        if (card.processingUntil && isCardInProcessingTime(card)) {
+          setupProcessingTimeCountdown(card);
         }
-      }
-      // Nettoyage initial des doublons
-      const cleanedCards = cleanupDuplicateCards();
-      cards.value = cleanedCards;
+      });
 
-      // Synchronisation initiale
-      await syncWithFirebase();
-
-      setupFirebaseListener();
-
-      // Écouter les changements en temps réel
-      unsubscribeFirebase.value = firebaseService.onCardsChange(
-        (firebaseCards, error) => {
-          if (error) {
-            console.error("Erreur temps réel Firebase:", error);
-            syncStatus.value = "error";
-            return;
-          }
-
-          if (firebaseCards) {
-            // Fusionner avec les données locales
-            const localCards = loadCards();
-            const merged = mergeCards(firebaseCards, localCards);
-            cards.value = merged;
-            syncStatus.value = "synced";
-          }
-        }
-      );
-
-      // Générer les éléments de fond
+      // Generate background elements
       generateStars();
       generateShapes();
-
-      // CSS dynamique pour les animations
-      const style = document.createElement("style");
-      let css = "";
-      shapes.value.forEach((shape) => {
-        css += `
-          @keyframes float-${shape.id} {
-            0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-            25% { transform: translateY(-15px) translateX(8px) rotate(90deg); }
-            50% { transform: translateY(-8px) translateX(-12px) rotate(180deg); }
-            75% { transform: translateY(-20px) translateX(4px) rotate(270deg); }
-          }`;
-      });
-      style.textContent = css;
+      
+      // Add dynamic CSS for floating shapes
+      const style = document.createElement('style');
+      style.textContent = shapes.value.map(shape => `
+        @keyframes float-${shape.id} {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          25% { transform: translate(${Math.random() * 20 - 10}px, ${Math.random() * 20 - 10}px) rotate(90deg); }
+          50% { transform: translate(${Math.random() * 30 - 15}px, ${Math.random() * 30 - 15}px) rotate(180deg); }
+          75% { transform: translate(${Math.random() * 20 - 10}px, ${Math.random() * 20 - 10}px) rotate(270deg); }
+        }
+      `).join('');
       document.head.appendChild(style);
 
-      // Écouter les changements de connexion
-      window.addEventListener("online", updateOnlineStatus);
-      window.addEventListener("offline", updateOnlineStatus);
+      // Setup network monitoring
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
       updateOnlineStatus();
+
+      // Setup Firebase listener
+      setupFirebaseListener();
     });
 
     onUnmounted(() => {
+      // Nettoyer les écouteurs d'événements
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+
+      // Nettoyer le listener Firebase
       if (unsubscribeFirebase.value) {
         unsubscribeFirebase.value();
       }
 
-      window.removeEventListener("online", updateOnlineStatus);
-      window.removeEventListener("offline", updateOnlineStatus);
+      // Nettoyer tous les intervalles de temps de traitement
+      processingTimeIntervals.value.forEach(interval => clearInterval(interval));
+      processingTimeIntervals.value.clear();
     });
 
-    // Retry pour la synchronisation
-    const retrySync = async () => {
-      if (!isOnline.value) {
-        alert("Pas de connexion internet");
-        return;
-      }
-
-      await syncWithFirebase();
-    };
-
-    // Handle image loading errors
-    const handleImageError = (event) => {
-      console.error("Image failed to load:", event.target.src);
-      event.target.style.display = "none";
-    };
-
+    // Return all the reactive data and methods
     return {
       // State
       currentUser,
       selectedMood,
       cardText,
       isCreating,
+      selectedProcessingTime,
       cards,
       editingCard,
       editText,
@@ -1115,13 +1160,20 @@ export default {
       shapes,
       isOnline,
       syncStatus,
+      
+      // Data
       moods,
-
+      processingTimeOptions,
+      
       // Computed
       canCreateCard,
-
+      
       // Methods
       getCardKey,
+      isCardProcessing,
+      isCardInProcessingTime,
+      getProcessingTimeRemaining,
+      makeVisibleNow,
       createCard,
       changeUser,
       formatTime,
@@ -1130,9 +1182,9 @@ export default {
       saveEdit,
       deleteCard,
       retrySync,
-      handleImageError,
+      handleImageError
     };
-  },
+  }
 };
 </script>
 
@@ -1756,6 +1808,53 @@ export default {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.time-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.time-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.time-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.time-btn.selected {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: white;
+}
+
+.time-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.time-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.time-description {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.7rem;
+  margin-top: 0.25rem;
 }
 
 @keyframes pulse {
