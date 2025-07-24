@@ -219,19 +219,26 @@
 
             <!-- Processing Time Selection -->
             <div class="processing-time-section">
-              <label class="input-label">Processing time before others can see this</label>
+              <label class="input-label"
+                >Processing time before others can see this</label
+              >
               <div class="time-options">
                 <button
                   v-for="timeOption in processingTimeOptions"
                   :key="timeOption.value"
                   @click="selectedProcessingTime = timeOption"
                   class="time-btn"
-                  :class="{ selected: selectedProcessingTime?.value === timeOption.value }"
+                  :class="{
+                    selected:
+                      selectedProcessingTime?.value === timeOption.value,
+                  }"
                 >
                   <span class="time-icon">{{ timeOption.icon }}</span>
                   <div class="time-info">
                     <span class="time-label">{{ timeOption.label }}</span>
-                    <span class="time-description">{{ timeOption.description }}</span>
+                    <span class="time-description">{{
+                      timeOption.description
+                    }}</span>
                   </div>
                 </button>
               </div>
@@ -301,21 +308,40 @@
               class="timeline-card"
               :class="{
                 processing: isCardProcessing(card),
-                editing: editingCard?.firebaseId === card.firebaseId || editingCard?.id === card.id,
-                'processing-time': isCardInProcessingTime(card)
+                editing:
+                  editingCard?.firebaseId === card.firebaseId ||
+                  editingCard?.id === card.id,
+                'processing-time': isCardInProcessingTime(card),
               }"
             >
               <!-- Processing Time Status -->
-              <div v-if="isCardInProcessingTime(card)" class="processing-time-status">
+              <div
+                v-if="isCardInProcessingTime(card)"
+                class="processing-time-status"
+              >
                 <div class="processing-time-info">
-                  <svg class="processing-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12,6 12,12 16,14"/>
+                  <svg
+                    class="processing-icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12,6 12,12 16,14" />
                   </svg>
-                  <span>{{ getProcessingTimeRemaining(card) }} until visible to others</span>
+                  <span
+                    >{{ getProcessingTimeRemaining(card) }} until visible to
+                    others</span
+                  >
                 </div>
                 <div class="processing-actions">
-                  <button @click="makeVisibleNow(card)" class="make-visible-btn">
+                  <button
+                    @click="makeVisibleNow(card)"
+                    class="make-visible-btn"
+                  >
                     Make visible now
                   </button>
                 </div>
@@ -449,10 +475,6 @@
                   <p>{{ card.text }}</p>
                 </div>
               </div>
-
-              <div v-if="isCardProcessing(card)" class="processing-overlay">
-                <div class="processing-text">Processing...</div>
-              </div>
             </div>
           </div>
         </div>
@@ -548,44 +570,44 @@ export default {
         value: 0,
         label: "Immediate",
         description: "Visible right away",
-        icon: "⚡"
+        icon: "⚡",
       },
       {
         value: 5,
         label: "5 minutes",
         description: "Quick reflection time",
-        icon: "⏱️"
+        icon: "⏱️",
       },
       {
         value: 15,
         label: "15 minutes",
         description: "Short processing time",
-        icon: "🕐"
+        icon: "🕐",
       },
       {
         value: 30,
         label: "30 minutes",
         description: "Medium reflection",
-        icon: "🕕"
+        icon: "🕕",
       },
       {
         value: 60,
         label: "1 hour",
         description: "Deep processing time",
-        icon: "⏰"
+        icon: "⏰",
       },
       {
         value: 180,
         label: "3 hours",
         description: "Extended reflection",
-        icon: "🕘"
+        icon: "🕘",
       },
       {
         value: 1440,
         label: "24 hours",
         description: "Full day to process",
-        icon: "📅"
-      }
+        icon: "📅",
+      },
     ]);
 
     // Set default processing time
@@ -622,22 +644,22 @@ export default {
     // Get remaining processing time
     const getProcessingTimeRemaining = (card) => {
       if (!card.processingUntil) return "";
-      
+
       const now = new Date();
       const until = new Date(card.processingUntil);
       const diffMs = until - now;
-      
+
       if (diffMs <= 0) return "";
-      
+
       const minutes = Math.ceil(diffMs / (1000 * 60));
-      
+
       if (minutes < 60) {
-        return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+        return `${minutes} minute${minutes > 1 ? "s" : ""}`;
       } else {
         const hours = Math.floor(minutes / 60);
         const remainingMinutes = minutes % 60;
         if (remainingMinutes === 0) {
-          return `${hours} hour${hours > 1 ? 's' : ''}`;
+          return `${hours} hour${hours > 1 ? "s" : ""}`;
         } else {
           return `${hours}h ${remainingMinutes}m`;
         }
@@ -646,25 +668,26 @@ export default {
 
     // Make card visible immediately
     const makeVisibleNow = async (card) => {
-      const cardIndex = cards.value.findIndex(c => 
-        (card.firebaseId && c.firebaseId === card.firebaseId) || 
-        (card.id && c.id === card.id)
+      const cardIndex = cards.value.findIndex(
+        (c) =>
+          (card.firebaseId && c.firebaseId === card.firebaseId) ||
+          (card.id && c.id === card.id)
       );
-      
+
       if (cardIndex === -1) return;
-      
+
       // Remove processing time
       cards.value[cardIndex].processingUntil = null;
-      
+
       // Save locally
       saveCardsLocally(cards.value);
-      
+
       // Update Firebase if possible
       if (card.firebaseId) {
         try {
           syncStatus.value = "syncing";
           await firebaseService.updateCard(card.firebaseId, {
-            processingUntil: null
+            processingUntil: null,
           });
           syncStatus.value = "synced";
         } catch (error) {
@@ -672,7 +695,7 @@ export default {
           syncStatus.value = "error";
         }
       }
-      
+
       // Clear any existing interval for this card
       const intervalKey = card.firebaseId || card.id;
       if (processingTimeIntervals.value.has(intervalKey)) {
@@ -684,24 +707,24 @@ export default {
     // Setup processing time countdown
     const setupProcessingTimeCountdown = (card) => {
       if (!card.processingUntil) return;
-      
+
       const intervalKey = card.firebaseId || card.id;
-      
+
       // Clear existing interval if any
       if (processingTimeIntervals.value.has(intervalKey)) {
         clearInterval(processingTimeIntervals.value.get(intervalKey));
       }
-      
+
       const interval = setInterval(() => {
         if (!isCardInProcessingTime(card)) {
           clearInterval(interval);
           processingTimeIntervals.value.delete(intervalKey);
-          
+
           // Force reactivity update
           cards.value = [...cards.value];
         }
       }, 60000); // Check every minute
-      
+
       processingTimeIntervals.value.set(intervalKey, interval);
     };
 
@@ -724,7 +747,9 @@ export default {
             ...card,
             timestamp: new Date(card.timestamp),
             editedAt: card.editedAt ? new Date(card.editedAt) : null,
-            processingUntil: card.processingUntil ? new Date(card.processingUntil) : null,
+            processingUntil: card.processingUntil
+              ? new Date(card.processingUntil)
+              : null,
           }))
         : [];
     };
@@ -734,7 +759,9 @@ export default {
         ...card,
         timestamp: card.timestamp.toISOString(),
         editedAt: card.editedAt ? card.editedAt.toISOString() : null,
-        processingUntil: card.processingUntil ? card.processingUntil.toISOString() : null,
+        processingUntil: card.processingUntil
+          ? card.processingUntil.toISOString()
+          : null,
       }));
       localStorage.setItem("ventingCards", JSON.stringify(cardsForStorage));
     };
@@ -784,9 +811,12 @@ export default {
         .substr(2, 9)}`;
 
       // Calculate processing until time
-      const processingUntil = selectedProcessingTime.value.value > 0 
-        ? new Date(Date.now() + selectedProcessingTime.value.value * 60 * 1000)
-        : null;
+      const processingUntil =
+        selectedProcessingTime.value.value > 0
+          ? new Date(
+              Date.now() + selectedProcessingTime.value.value * 60 * 1000
+            )
+          : null;
 
       const newCard = {
         id: tempId,
@@ -816,7 +846,7 @@ export default {
             isProcessing: false,
           };
           saveCardsLocally(cards.value);
-          
+
           // Setup processing time countdown if needed
           if (processingUntil) {
             setupProcessingTimeCountdown(cards.value[cardIndex]);
@@ -838,7 +868,7 @@ export default {
               isProcessing: false,
             };
             saveCardsLocally(cards.value);
-            
+
             // Setup processing time countdown if needed
             if (processingUntil) {
               setupProcessingTimeCountdown(cards.value[cardIndex]);
@@ -879,7 +909,7 @@ export default {
     const startEditing = (card) => {
       // Ne pas permettre l'édition des cartes en cours de traitement
       if (isCardProcessing(card)) return;
-      
+
       editingCard.value = card;
       editText.value = card.text;
       editMood.value = card.mood;
@@ -892,12 +922,14 @@ export default {
     };
 
     const saveEdit = async () => {
-      if (!editingCard.value || !editMood.value || !editText.value.trim()) return;
+      if (!editingCard.value || !editMood.value || !editText.value.trim())
+        return;
 
       const cardToEdit = editingCard.value;
-      const cardIndex = cards.value.findIndex(c => 
-        (cardToEdit.firebaseId && c.firebaseId === cardToEdit.firebaseId) || 
-        (cardToEdit.id && c.id === cardToEdit.id)
+      const cardIndex = cards.value.findIndex(
+        (c) =>
+          (cardToEdit.firebaseId && c.firebaseId === cardToEdit.firebaseId) ||
+          (cardToEdit.id && c.id === cardToEdit.id)
       );
 
       if (cardIndex === -1) return;
@@ -909,7 +941,7 @@ export default {
         ...cards.value[cardIndex],
         mood: editMood.value,
         text: editText.value.trim(),
-        editedAt: new Date()
+        editedAt: new Date(),
       };
 
       cards.value[cardIndex] = updatedCard;
@@ -921,7 +953,7 @@ export default {
           await firebaseService.updateCard(cardToEdit.firebaseId, {
             mood: editMood.value,
             text: editText.value.trim(),
-            editedAt: new Date().toISOString()
+            editedAt: new Date().toISOString(),
           });
           syncStatus.value = "synced";
         } catch (error) {
@@ -939,16 +971,21 @@ export default {
     // Delete functionality
     const deleteCard = async (card) => {
       // Confirmation avant suppression
-      if (!confirm("Êtes-vous sûr de vouloir supprimer cette carte ? Cette action est irréversible.")) {
+      if (
+        !confirm(
+          "Êtes-vous sûr de vouloir supprimer cette carte ? Cette action est irréversible."
+        )
+      ) {
         return;
       }
 
       syncStatus.value = "syncing";
 
       // Supprimer localement
-      const cardIndex = cards.value.findIndex(c => 
-        (card.firebaseId && c.firebaseId === card.firebaseId) || 
-        (card.id && c.id === card.id)
+      const cardIndex = cards.value.findIndex(
+        (c) =>
+          (card.firebaseId && c.firebaseId === card.firebaseId) ||
+          (card.id && c.id === card.id)
       );
 
       if (cardIndex !== -1) {
@@ -977,9 +1014,12 @@ export default {
       }
 
       // Annuler l'édition si on était en train d'éditer cette carte
-      if (editingCard.value && 
-          ((card.firebaseId && editingCard.value.firebaseId === card.firebaseId) ||
-           (card.id && editingCard.value.id === card.id))) {
+      if (
+        editingCard.value &&
+        ((card.firebaseId &&
+          editingCard.value.firebaseId === card.firebaseId) ||
+          (card.id && editingCard.value.id === card.id))
+      ) {
         cancelEditing();
       }
     };
@@ -998,8 +1038,10 @@ export default {
 
     // Sync pending cards when back online
     const syncPendingCards = async () => {
-      const cardsToSync = cards.value.filter(card => !card.firebaseId && !card.isProcessing);
-      
+      const cardsToSync = cards.value.filter(
+        (card) => !card.firebaseId && !card.isProcessing
+      );
+
       if (cardsToSync.length === 0) return;
 
       syncStatus.value = "syncing";
@@ -1007,12 +1049,12 @@ export default {
       for (const card of cardsToSync) {
         try {
           const firebaseId = await firebaseService.saveCard(card);
-          
-          const cardIndex = cards.value.findIndex(c => c.id === card.id);
+
+          const cardIndex = cards.value.findIndex((c) => c.id === card.id);
           if (cardIndex !== -1) {
             cards.value[cardIndex] = {
               ...cards.value[cardIndex],
-              firebaseId: firebaseId
+              firebaseId: firebaseId,
             };
           }
         } catch (error) {
@@ -1032,7 +1074,7 @@ export default {
         syncStatus.value = "offline";
         return;
       }
-      
+
       await syncPendingCards();
     };
 
@@ -1045,12 +1087,14 @@ export default {
           currentUser.value.id,
           (updatedCards) => {
             // Fusionner avec les cartes locales non synchronisées
-            const localCards = cards.value.filter(card => !card.firebaseId);
-            const firebaseCards = updatedCards.map(card => ({
+            const localCards = cards.value.filter((card) => !card.firebaseId);
+            const firebaseCards = updatedCards.map((card) => ({
               ...card,
               timestamp: new Date(card.timestamp),
               editedAt: card.editedAt ? new Date(card.editedAt) : null,
-              processingUntil: card.processingUntil ? new Date(card.processingUntil) : null,
+              processingUntil: card.processingUntil
+                ? new Date(card.processingUntil)
+                : null,
             }));
 
             // Combiner et trier
@@ -1059,14 +1103,14 @@ export default {
             );
 
             // Configurer les comptes à rebours pour les cartes avec temps de traitement
-            cards.value.forEach(card => {
+            cards.value.forEach((card) => {
               if (card.processingUntil && isCardInProcessingTime(card)) {
                 setupProcessingTimeCountdown(card);
               }
             });
 
             saveCardsLocally(cards.value);
-            
+
             if (syncStatus.value !== "offline") {
               syncStatus.value = "synced";
             }
@@ -1098,7 +1142,7 @@ export default {
       cards.value = loadCards();
 
       // Setup processing time countdowns for existing cards
-      cards.value.forEach(card => {
+      cards.value.forEach((card) => {
         if (card.processingUntil && isCardInProcessingTime(card)) {
           setupProcessingTimeCountdown(card);
         }
@@ -1107,22 +1151,32 @@ export default {
       // Generate background elements
       generateStars();
       generateShapes();
-      
+
       // Add dynamic CSS for floating shapes
-      const style = document.createElement('style');
-      style.textContent = shapes.value.map(shape => `
+      const style = document.createElement("style");
+      style.textContent = shapes.value
+        .map(
+          (shape) => `
         @keyframes float-${shape.id} {
           0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(${Math.random() * 20 - 10}px, ${Math.random() * 20 - 10}px) rotate(90deg); }
-          50% { transform: translate(${Math.random() * 30 - 15}px, ${Math.random() * 30 - 15}px) rotate(180deg); }
-          75% { transform: translate(${Math.random() * 20 - 10}px, ${Math.random() * 20 - 10}px) rotate(270deg); }
+          25% { transform: translate(${Math.random() * 20 - 10}px, ${
+            Math.random() * 20 - 10
+          }px) rotate(90deg); }
+          50% { transform: translate(${Math.random() * 30 - 15}px, ${
+            Math.random() * 30 - 15
+          }px) rotate(180deg); }
+          75% { transform: translate(${Math.random() * 20 - 10}px, ${
+            Math.random() * 20 - 10
+          }px) rotate(270deg); }
         }
-      `).join('');
+      `
+        )
+        .join("");
       document.head.appendChild(style);
 
       // Setup network monitoring
-      window.addEventListener('online', updateOnlineStatus);
-      window.addEventListener('offline', updateOnlineStatus);
+      window.addEventListener("online", updateOnlineStatus);
+      window.addEventListener("offline", updateOnlineStatus);
       updateOnlineStatus();
 
       // Setup Firebase listener
@@ -1131,8 +1185,8 @@ export default {
 
     onUnmounted(() => {
       // Nettoyer les écouteurs d'événements
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
 
       // Nettoyer le listener Firebase
       if (unsubscribeFirebase.value) {
@@ -1140,7 +1194,9 @@ export default {
       }
 
       // Nettoyer tous les intervalles de temps de traitement
-      processingTimeIntervals.value.forEach(interval => clearInterval(interval));
+      processingTimeIntervals.value.forEach((interval) =>
+        clearInterval(interval)
+      );
       processingTimeIntervals.value.clear();
     });
 
@@ -1160,14 +1216,14 @@ export default {
       shapes,
       isOnline,
       syncStatus,
-      
+
       // Data
       moods,
       processingTimeOptions,
-      
+
       // Computed
       canCreateCard,
-      
+
       // Methods
       getCardKey,
       isCardProcessing,
@@ -1182,9 +1238,9 @@ export default {
       saveEdit,
       deleteCard,
       retrySync,
-      handleImageError
+      handleImageError,
     };
-  }
+  },
 };
 </script>
 
@@ -1557,7 +1613,7 @@ export default {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 0.5rem 1.5rem 1.5rem 1.5rem;
   transition: all 0.3s ease;
   position: relative;
 }
@@ -1790,26 +1846,6 @@ export default {
   margin: 0;
 }
 
-.processing-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(2px);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.processing-text {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
 .time-options {
   display: flex;
   gap: 0.5rem;
@@ -1855,6 +1891,44 @@ export default {
   color: rgba(255, 255, 255, 0.4);
   font-size: 0.7rem;
   margin-top: 0.25rem;
+}
+
+.processing-time-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.processing-time-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.processing-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-block;
+  margin-right: 0.25rem;
+}
+
+.processing-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.make-visible-btn {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #6366f1;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 @keyframes pulse {
