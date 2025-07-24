@@ -602,7 +602,7 @@ export default {
         isProcessing: true,
       };
 
-      // Add locally first for fast UX (this is important!)
+      // Add locally first for fast UX
       cards.value.unshift(newCard);
       saveCardsLocally(cards.value);
 
@@ -610,13 +610,16 @@ export default {
         // Save to Firebase
         const firebaseId = await firebaseService.saveCard(newCard);
 
-        // Update with Firebase ID
+        // CORRECTION: Mettre à jour la card existante au lieu d'en créer une nouvelle
         const cardIndex = cards.value.findIndex((card) => card.id === tempId);
         if (cardIndex !== -1) {
+          // Mettre à jour la card existante avec l'ID Firebase
           cards.value[cardIndex] = {
             ...cards.value[cardIndex],
             firebaseId: firebaseId,
             isProcessing: false,
+            // IMPORTANT: Garder l'ID temporaire pour éviter les conflits
+            // L'ID temporaire sera utilisé jusqu'à ce que le listener Firebase prenne le relais
           };
           saveCardsLocally(cards.value);
         }
@@ -762,7 +765,7 @@ export default {
       const cards = loadCards();
       const cleanedCards = [];
       const seenFirebaseIds = new Set();
-      const seenTempIds = new Set();
+      const seenLocalCards = new Set();
 
       cards.forEach((card) => {
         // Si la carte a un firebaseId
@@ -771,16 +774,21 @@ export default {
             seenFirebaseIds.add(card.firebaseId);
             cleanedCards.push(card);
           } else {
-            console.log("Removing duplicate Firebase card:", card);
+            console.log("Removing duplicate Firebase card:", card.firebaseId);
           }
         }
-        // Si c'est une carte temporaire (sans firebaseId)
+        // Si c'est une carte temporaire/locale
         else if (card.id) {
-          if (!seenTempIds.has(card.id)) {
-            seenTempIds.add(card.id);
+          // Créer une clé unique basée sur le contenu pour détecter les vrais doublons
+          const contentKey = `${card.text}-${card.mood.id}-${new Date(
+            card.timestamp
+          ).getTime()}`;
+
+          if (!seenLocalCards.has(contentKey)) {
+            seenLocalCards.add(contentKey);
             cleanedCards.push(card);
           } else {
-            console.log("Removing duplicate temp card:", card);
+            console.log("Removing duplicate local card:", card.id);
           }
         }
       });
@@ -794,6 +802,66 @@ export default {
       }
 
       return cards;
+    };
+
+    const setupFirebaseListener = () => {
+      unsubscribeFirebase.value = firebaseService.onCardsChange(
+        (firebaseCards, error) => {
+          if (error) {
+            console.error("Erreur temps réel Firebase:", error);
+            syncStatus.value = "error";
+            return;
+          }
+
+          if (firebaseCards) {
+            // Au lieu de merger systématiquement, remplacer les cards qui ont un firebaseId
+            const currentCards = [...cards.value];
+
+            firebaseCards.forEach((firebaseCard) => {
+              if (firebaseCard.firebaseId) {
+                // Chercher si une card locale correspond (par firebaseId ou par contenu récent)
+                const localIndex = currentCards.findIndex((localCard) => {
+                  // Correspondance directe par firebaseId
+                  if (localCard.firebaseId === firebaseCard.firebaseId) {
+                    return true;
+                  }
+
+                  // Correspondance par contenu pour les cards récemment créées
+                  if (!localCard.firebaseId && localCard.isProcessing) {
+                    return (
+                      localCard.text === firebaseCard.text &&
+                      localCard.mood.id === firebaseCard.mood.id &&
+                      Math.abs(
+                        new Date(localCard.timestamp) -
+                          new Date(firebaseCard.timestamp)
+                      ) < 10000
+                    ); // 10 secondes
+                  }
+
+                  return false;
+                });
+
+                if (localIndex !== -1) {
+                  // Remplacer la card locale par la card Firebase
+                  currentCards[localIndex] = firebaseCard;
+                } else {
+                  // Ajouter la nouvelle card Firebase
+                  currentCards.unshift(firebaseCard);
+                }
+              }
+            });
+
+            // Trier et mettre à jour
+            cards.value = currentCards.sort(
+              (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            // Sauvegarder localement
+            saveCardsLocally(cards.value);
+            syncStatus.value = "synced";
+          }
+        }
+      );
     };
 
     const deleteCard = async (card) => {
@@ -870,29 +938,60 @@ export default {
 
       // Créer une Map des cards Firebase par firebaseId
       const firebaseMap = new Map();
+      const mergedCards = [];
+
+      // D'abord, ajouter toutes les cards Firebase
       firebaseCards.forEach((card) => {
         if (card.firebaseId) {
           firebaseMap.set(card.firebaseId, card);
+          mergedCards.push(card);
         }
       });
 
-      // Ajouter les cards locales qui n'ont pas d'équivalent Firebase
-      const localOnlyCards = localCards.filter((localCard) => {
-        // Si la card locale a un firebaseId, vérifier qu'elle n'existe pas déjà
-        if (localCard.firebaseId) {
-          return !firebaseMap.has(localCard.firebaseId);
+      // Ensuite, ajouter seulement les cards locales qui n'ont PAS d'équivalent Firebase
+      localCards.forEach((localCard) => {
+        // Si la card locale a un firebaseId et qu'elle existe déjà dans Firebase, l'ignorer
+        if (localCard.firebaseId && firebaseMap.has(localCard.firebaseId)) {
+          console.log(
+            "Skipping duplicate card with firebaseId:",
+            localCard.firebaseId
+          );
+          return;
         }
-        // Si pas de firebaseId, c'est une card locale uniquement
-        return true;
+
+        // Si c'est une card temporaire (en cours de processing), la garder
+        if (!localCard.firebaseId && localCard.isProcessing) {
+          mergedCards.push(localCard);
+          return;
+        }
+
+        // Si c'est une card locale sans firebaseId et pas en processing,
+        // vérifier qu'elle n'existe pas déjà par contenu (au cas où)
+        if (!localCard.firebaseId && !localCard.isProcessing) {
+          const isDuplicate = mergedCards.some(
+            (card) =>
+              card.text === localCard.text &&
+              card.mood.id === localCard.mood.id &&
+              Math.abs(
+                new Date(card.timestamp) - new Date(localCard.timestamp)
+              ) < 5000 // 5 secondes de tolérance
+          );
+
+          if (!isDuplicate) {
+            mergedCards.push(localCard);
+          } else {
+            console.log("Skipping duplicate local card:", localCard);
+          }
+        }
       });
 
-      // Combiner et trier par timestamp
-      const merged = [...firebaseCards, ...localOnlyCards].sort(
+      // Trier par timestamp
+      const sorted = mergedCards.sort(
         (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
       );
 
-      console.log("Merged result:", merged);
-      return merged;
+      console.log("Merged result:", sorted);
+      return sorted;
     };
 
     const updateOnlineStatus = () => {
@@ -924,10 +1023,14 @@ export default {
           console.log("Updated avatar path:", currentUser.value.avatar); // Debug
         }
       }
+      // Nettoyage initial des doublons
+      const cleanedCards = cleanupDuplicateCards();
+      cards.value = cleanedCards;
 
       // Synchronisation initiale
       await syncWithFirebase();
-      await cleanupDuplicateCards();
+
+      setupFirebaseListener();
 
       // Écouter les changements en temps réel
       unsubscribeFirebase.value = firebaseService.onCardsChange(
