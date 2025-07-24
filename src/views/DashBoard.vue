@@ -678,11 +678,16 @@ export default {
     const startEditing = (card) => {
       if (card.isProcessing) return;
 
-      console.log("Editing card:", card); // Debug
+      console.log("Starting to edit card:", card); // Debug
+      console.log("Card firebaseId:", card.firebaseId); // Debug
+      console.log("Card id:", card.id); // Debug
 
+      // Stocker la référence exacte de la carte
       editingCard.value = card;
       editText.value = card.text;
       editMood.value = card.mood;
+
+      console.log("editingCard.value set to:", editingCard.value); // Debug
     };
 
     const cancelEditing = () => {
@@ -695,40 +700,55 @@ export default {
       if (!editingCard.value || !editMood.value || !editText.value.trim())
         return;
 
+      console.log("Saving edit for card:", editingCard.value); // Debug
+
       // Utiliser le bon identifiant pour trouver la card
       const cardIndex = cards.value.findIndex((card) => {
-        if (editingCard.value.firebaseId) {
+        // D'abord essayer par firebaseId si il existe
+        if (editingCard.value.firebaseId && card.firebaseId) {
           return card.firebaseId === editingCard.value.firebaseId;
         }
-        return card.id === editingCard.value.id;
+        // Sinon par l'ID temporaire
+        if (editingCard.value.id && card.id) {
+          return card.id === editingCard.value.id;
+        }
+        return false;
       });
+
+      console.log("Found card at index:", cardIndex); // Debug
+      console.log("Current cards array:", cards.value); // Debug
 
       if (cardIndex === -1) {
         console.error("Card not found for editing");
+        console.error("Looking for:", editingCard.value);
+        console.error("In cards:", cards.value);
         return;
       }
 
-      const updatedCard = {
-        ...cards.value[cardIndex],
-        text: editText.value.trim(),
-        mood: editMood.value,
-        editedAt: new Date(),
-      };
+      // IMPORTANT: Modifier la carte existante, ne pas en créer une nouvelle
+      const existingCard = cards.value[cardIndex];
 
-      // Mettre à jour localement FIRST
-      cards.value[cardIndex] = updatedCard;
-      saveCardsLocally(cards.value); // IMPORTANT: Remettre cette ligne
+      // Mettre à jour seulement les champs modifiés
+      existingCard.text = editText.value.trim();
+      existingCard.mood = editMood.value;
+      existingCard.editedAt = new Date();
+
+      console.log("Updated card:", existingCard); // Debug
+
+      // Sauvegarder localement
+      saveCardsLocally(cards.value);
 
       // Mettre à jour sur Firebase si possible
-      if (updatedCard.firebaseId) {
+      if (existingCard.firebaseId) {
         try {
           syncStatus.value = "syncing";
-          await firebaseService.updateCard(updatedCard.firebaseId, {
-            text: updatedCard.text,
-            mood: updatedCard.mood,
-            editedAt: updatedCard.editedAt,
+          await firebaseService.updateCard(existingCard.firebaseId, {
+            text: existingCard.text,
+            mood: existingCard.mood,
+            editedAt: existingCard.editedAt,
           });
           syncStatus.value = "synced";
+          console.log("Firebase update successful"); // Debug
         } catch (error) {
           console.error("Erreur mise à jour Firebase:", error);
           syncStatus.value = "error";
@@ -736,6 +756,44 @@ export default {
       }
 
       cancelEditing();
+    };
+
+    const cleanupDuplicateCards = () => {
+      const cards = loadCards();
+      const cleanedCards = [];
+      const seenFirebaseIds = new Set();
+      const seenTempIds = new Set();
+
+      cards.forEach((card) => {
+        // Si la carte a un firebaseId
+        if (card.firebaseId) {
+          if (!seenFirebaseIds.has(card.firebaseId)) {
+            seenFirebaseIds.add(card.firebaseId);
+            cleanedCards.push(card);
+          } else {
+            console.log("Removing duplicate Firebase card:", card);
+          }
+        }
+        // Si c'est une carte temporaire (sans firebaseId)
+        else if (card.id) {
+          if (!seenTempIds.has(card.id)) {
+            seenTempIds.add(card.id);
+            cleanedCards.push(card);
+          } else {
+            console.log("Removing duplicate temp card:", card);
+          }
+        }
+      });
+
+      if (cleanedCards.length !== cards.length) {
+        console.log(
+          `Cleaned up ${cards.length - cleanedCards.length} duplicate cards`
+        );
+        saveCardsLocally(cleanedCards);
+        return cleanedCards;
+      }
+
+      return cards;
     };
 
     const deleteCard = async (card) => {
@@ -869,6 +927,7 @@ export default {
 
       // Synchronisation initiale
       await syncWithFirebase();
+      await cleanupDuplicateCards();
 
       // Écouter les changements en temps réel
       unsubscribeFirebase.value = firebaseService.onCardsChange(
