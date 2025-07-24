@@ -128,7 +128,7 @@ const clearSelectedUser = () => {
 
 // Navigation functions
 const redirectToDashboard = () => {
-  router.push('/dashboard')
+  router.push('/vent')
 }
 
 // Generate random stars
@@ -198,7 +198,7 @@ const selectUser = (user) => {
   
   // Show success message briefly then redirect
   setTimeout(() => {
-    console.log('Redirecting to dashboard...')
+    console.log('Redirecting to vent...')
     redirectToDashboard()
   }, 800) // Small delay for animation
 }
