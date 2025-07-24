@@ -3,6 +3,7 @@
     <div class="navbar-container">
       <!-- Logo ou titre -->
       <div class="navbar-brand">
+        <img src="/cloud.svg" alt="Vent Safe Logo" class="brand-logo" />
         <h2 class="brand-title">Vent Safe</h2>
       </div>
 
@@ -139,17 +140,26 @@ export default {
 }
 
 .navbar-brand {
-  padding: 0 1.5rem 2rem 1.5rem;
+  padding: 0 2.5rem 2rem 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-evenly;
+}
+
+/* logo on the left and title on the right */
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  margin-right: 1rem;
 }
 
 .brand-title {
+  font-size: 1.5rem;
   color: var(--color-white);
-  font-size: 1.25rem;
-  font-weight: 300;
-  margin: 0;
-  text-align: center;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
 }
 
 .navbar-menu {

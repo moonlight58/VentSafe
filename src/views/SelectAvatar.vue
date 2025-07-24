@@ -33,9 +33,6 @@
             <p class="selected-user-text">Welcome back, <span class="selected-user-name">{{ selectedUser.name }}</span>
             </p>
           </div>
-          <button @click="clearSelectedUser" class="clear-button" title="Change user">
-            ×
-          </button>
         </div>
       </div>
 
@@ -120,10 +117,6 @@ const saveSelectedUser = (user) => {
 const loadSelectedUser = () => {
   const saved = localStorage.getItem('selectedUser')
   return saved ? JSON.parse(saved) : null
-}
-
-const clearSelectedUser = () => {
-  localStorage.removeItem('selectedUser')
 }
 
 // Navigation functions
