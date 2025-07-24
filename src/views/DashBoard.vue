@@ -3,22 +3,22 @@
         <!-- Background elements similar to SelectAvatar -->
         <div class="background">
             <div v-for="star in stars" :key="star.id" class="star" :style="{
-        left: star.x + '%',
-        top: star.y + '%',
-        width: star.size + 'px',
-        height: star.size + 'px',
-        animationDelay: star.delay + 's',
-        animationDuration: star.duration + 's'
-      }"></div>
+                left: star.x + '%',
+                top: star.y + '%',
+                width: star.size + 'px',
+                height: star.size + 'px',
+                animationDelay: star.delay + 's',
+                animationDuration: star.duration + 's'
+            }"></div>
 
             <div v-for="shape in shapes" :key="shape.id" class="floating-shape" :style="{
-        width: shape.size + 'px',
-        height: shape.size + 'px',
-        left: shape.x + '%',
-        top: shape.y + '%',
-        backgroundColor: shape.color,
-        animation: `float-${shape.id} ${shape.duration}s ease-in-out infinite`
-      }"></div>
+                width: shape.size + 'px',
+                height: shape.size + 'px',
+                left: shape.x + '%',
+                top: shape.y + '%',
+                backgroundColor: shape.color,
+                animation: `float-${shape.id} ${shape.duration}s ease-in-out infinite`
+            }"></div>
         </div>
 
         <div class="main-container">
@@ -127,10 +127,10 @@
                         </div>
 
                         <!-- Create Button -->
-                        <button @click="createCard" :disabled="!canCreateCard" class="create-btn" :style="{ 
-                      backgroundColor: canCreateCard ? currentUser?.color : 'rgba(255,255,255,0.1)',
-                      borderColor: currentUser?.color 
-                    }">
+                        <button @click="createCard" :disabled="!canCreateCard" class="create-btn" :style="{
+                            backgroundColor: canCreateCard ? currentUser?.color : 'rgba(255,255,255,0.1)',
+                            borderColor: currentUser?.color
+                        }">
                             <span v-if="!isCreating">Create Card</span>
                             <span v-else class="creating-text">
                                 <svg class="spinner" width="16" height="16" viewBox="0 0 24 24">
@@ -285,979 +285,999 @@ const unsubscribeFirebase = ref(null)
 
 // Available moods
 const moods = ref([
-  { id: 1, name: 'Happy', emoji: '😊' },
-  { id: 2, name: 'Sad', emoji: '😢' },
-  { id: 3, name: 'Anxious', emoji: '😰' },
-  { id: 4, name: 'Excited', emoji: '🤩' },
-  { id: 5, name: 'Peaceful', emoji: '😌' },
-  { id: 6, name: 'Frustrated', emoji: '😤' },
-  { id: 7, name: 'Grateful', emoji: '🙏' },
-  { id: 8, name: 'Confused', emoji: '🤔' }
+    { id: 1, name: 'Happy', emoji: '😊' },
+    { id: 2, name: 'Sad', emoji: '😢' },
+    { id: 3, name: 'Anxious', emoji: '😰' },
+    { id: 4, name: 'Excited', emoji: '🤩' },
+    { id: 5, name: 'Peaceful', emoji: '😌' },
+    { id: 6, name: 'Frustrated', emoji: '😤' },
+    { id: 7, name: 'Grateful', emoji: '🙏' },
+    { id: 8, name: 'Confused', emoji: '🤔' }
 ])
 
 // Computed properties
 const canCreateCard = computed(() => {
-  return selectedMood.value && cardText.value.trim().length > 0 && cardText.value.length <= 300
+    return selectedMood.value && cardText.value.trim().length > 0 && cardText.value.length <= 300
 })
 
 // Storage functions
 const loadCurrentUser = () => {
-  const saved = localStorage.getItem('selectedUser')
-  return saved ? JSON.parse(saved) : null
+    const saved = localStorage.getItem('selectedUser')
+    return saved ? JSON.parse(saved) : null
 }
 
 const loadCards = () => {
-  const saved = localStorage.getItem('ventingCards')
-  return saved ? JSON.parse(saved).map(card => ({
-    ...card,
-    timestamp: new Date(card.timestamp),
-    editedAt: card.editedAt ? new Date(card.editedAt) : null
-  })) : []
+    const saved = localStorage.getItem('ventingCards')
+    return saved ? JSON.parse(saved).map(card => ({
+        ...card,
+        timestamp: new Date(card.timestamp),
+        editedAt: card.editedAt ? new Date(card.editedAt) : null
+    })) : []
 }
 
 const saveCardsLocally = (cardsToSave) => {
-  const cardsForStorage = cardsToSave.map(card => ({
-    ...card,
-    timestamp: card.timestamp.toISOString(),
-    editedAt: card.editedAt ? card.editedAt.toISOString() : null
-  }))
-  localStorage.setItem('ventingCards', JSON.stringify(cardsForStorage))
+    const cardsForStorage = cardsToSave.map(card => ({
+        ...card,
+        timestamp: card.timestamp.toISOString(),
+        editedAt: card.editedAt ? card.editedAt.toISOString() : null
+    }))
+    localStorage.setItem('ventingCards', JSON.stringify(cardsForStorage))
 }
 
 // Background generation functions
 const generateStars = () => {
-  for (let i = 0; i < 30; i++) {
-    stars.value.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 2 + 1,
-      delay: Math.random() * 3,
-      duration: Math.random() * 3 + 2
-    })
-  }
+    for (let i = 0; i < 30; i++) {
+        stars.value.push({
+            id: i,
+            x: Math.random() * 100,
+            y: Math.random() * 100,
+            size: Math.random() * 2 + 1,
+            delay: Math.random() * 3,
+            duration: Math.random() * 3 + 2
+        })
+    }
 }
 
 const generateShapes = () => {
-  const colors = ['#6366f1', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6']
-  for (let i = 0; i < 5; i++) {
-    shapes.value.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 150 + 100,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      duration: Math.random() * 8 + 12
-    })
-  }
+    const colors = ['#6366f1', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6']
+    for (let i = 0; i < 5; i++) {
+        shapes.value.push({
+            id: i,
+            x: Math.random() * 100,
+            y: Math.random() * 100,
+            size: Math.random() * 150 + 100,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            duration: Math.random() * 8 + 12
+        })
+    }
 }
 
 const createCard = async () => {
-  if (!canCreateCard.value) return
+    if (!canCreateCard.value) return
 
-  isCreating.value = true
-  syncStatus.value = 'syncing'
+    isCreating.value = true
+    syncStatus.value = 'syncing'
 
-  const newCard = {
-    id: Date.now(),
-    user: currentUser.value,
-    mood: selectedMood.value,
-    text: cardText.value.trim(),
-    timestamp: new Date(),
-    isProcessing: true
-  }
-
-  // Ajouter localement d'abord pour UX rapide
-  cards.value.unshift(newCard)
-  saveCardsLocally(cards.value)
-
-  try {
-    // Sauvegarder sur Firebase
-    const firebaseId = await firebaseService.saveCard(newCard)
-    
-    // Mettre à jour avec l'ID Firebase
-    const cardIndex = cards.value.findIndex(card => card.id === newCard.id)
-    if (cardIndex !== -1) {
-      cards.value[cardIndex].firebaseId = firebaseId
-      cards.value[cardIndex].isProcessing = false
-      saveCardsLocally(cards.value)
+    const newCard = {
+        id: Date.now(),
+        user: currentUser.value,
+        mood: selectedMood.value,
+        text: cardText.value.trim(),
+        timestamp: new Date(),
+        isProcessing: true
     }
 
-    syncStatus.value = 'synced'
-    console.log('Card sauvegardée sur Firebase:', firebaseId)
-  } catch (error) {
-    console.error('Erreur Firebase, card gardée localement:', error)
-    syncStatus.value = 'error'
-    
-    // Simuler le processing local
-    setTimeout(() => {
-      const cardIndex = cards.value.findIndex(card => card.id === newCard.id)
-      if (cardIndex !== -1) {
-        cards.value[cardIndex].isProcessing = false
-        saveCardsLocally(cards.value)
-      }
-    }, 3000)
-  }
+    // Ajouter localement d'abord pour UX rapide
+    cards.value.unshift(newCard)
+    saveCardsLocally(cards.value)
 
-  // Nettoyer le formulaire
-  selectedMood.value = null
-  cardText.value = ''
-  isCreating.value = false
+    try {
+        // Sauvegarder sur Firebase
+        const firebaseId = await firebaseService.saveCard(newCard)
+
+        // Mettre à jour avec l'ID Firebase
+        const cardIndex = cards.value.findIndex(card => card.id === newCard.id)
+        if (cardIndex !== -1) {
+            cards.value[cardIndex].firebaseId = firebaseId
+            cards.value[cardIndex].isProcessing = false
+            saveCardsLocally(cards.value)
+        }
+
+        syncStatus.value = 'synced'
+        console.log('Card sauvegardée sur Firebase:', firebaseId)
+    } catch (error) {
+        console.error('Erreur Firebase, card gardée localement:', error)
+        syncStatus.value = 'error'
+
+        // Simuler le processing local
+        setTimeout(() => {
+            const cardIndex = cards.value.findIndex(card => card.id === newCard.id)
+            if (cardIndex !== -1) {
+                cards.value[cardIndex].isProcessing = false
+                saveCardsLocally(cards.value)
+            }
+        }, 3000)
+    }
+
+    // Nettoyer le formulaire
+    selectedMood.value = null
+    cardText.value = ''
+    isCreating.value = false
 }
 
 const changeUser = () => {
-  router.push('/')
+    router.push('/')
 }
 
 const formatTime = (timestamp) => {
-  const now = new Date()
-  const cardTime = new Date(timestamp)
-  const diffInMs = now - cardTime
-  const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
-  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-  
-  if (diffInMinutes < 1) return 'Just now'
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-  if (diffInHours < 24) return `${diffInHours}h ago`
-  if (diffInDays === 1) return 'Yesterday'
-  if (diffInDays < 7) return `${diffInDays} days ago`
-  
-  // For older dates, show actual date
-  const options = { month: 'short', day: 'numeric' }
-  if (cardTime.getFullYear() !== now.getFullYear()) {
-    options.year = 'numeric'
-  }
-  return cardTime.toLocaleDateString('en-US', options)
+    const now = new Date()
+    const cardTime = new Date(timestamp)
+    const diffInMs = now - cardTime
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+
+    if (diffInMinutes < 1) return 'Just now'
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    if (diffInDays === 1) return 'Yesterday'
+    if (diffInDays < 7) return `${diffInDays} days ago`
+
+    // For older dates, show actual date
+    const options = { month: 'short', day: 'numeric' }
+    if (cardTime.getFullYear() !== now.getFullYear()) {
+        options.year = 'numeric'
+    }
+    return cardTime.toLocaleDateString('en-US', options)
 }
 
 const startEditing = (card) => {
-  if (card.isProcessing) return
-  editingCard.value = card
-  editText.value = card.text
-  editMood.value = card.mood
+    if (card.isProcessing) return
+    editingCard.value = card
+    editText.value = card.text
+    editMood.value = card.mood
 }
 
 const cancelEditing = () => {
-  editingCard.value = null
-  editText.value = ''
-  editMood.value = null
+    editingCard.value = null
+    editText.value = ''
+    editMood.value = null
 }
 
 const saveEdit = async () => {
-  if (!editingCard.value || !editMood.value || !editText.value.trim()) return
-  
-  const cardIndex = cards.value.findIndex(card => card.id === editingCard.value.id)
-  if (cardIndex === -1) return
+    if (!editingCard.value || !editMood.value || !editText.value.trim()) return
 
-  const updatedCard = {
-    ...cards.value[cardIndex],
-    text: editText.value.trim(),
-    mood: editMood.value,
-    editedAt: new Date()
-  }
+    const cardIndex = cards.value.findIndex(card => card.id === editingCard.value.id)
+    if (cardIndex === -1) return
 
-  // Mettre à jour localement
-  cards.value[cardIndex] = updatedCard
-  saveCardsLocally(cards.value)
-
-  // Mettre à jour sur Firebase si possible
-  if (updatedCard.firebaseId) {
-    try {
-      syncStatus.value = 'syncing'
-      await firebaseService.updateCard(updatedCard.firebaseId, {
-        text: updatedCard.text,
-        mood: updatedCard.mood
-      })
-      syncStatus.value = 'synced'
-    } catch (error) {
-      console.error('Erreur mise à jour Firebase:', error)
-      syncStatus.value = 'error'
+    const updatedCard = {
+        ...cards.value[cardIndex],
+        text: editText.value.trim(),
+        mood: editMood.value,
+        editedAt: new Date()
     }
-  }
-  
-  cancelEditing()
+
+    // Mettre à jour localement
+    cards.value[cardIndex] = updatedCard
+    saveCardsLocally(cards.value)
+
+    // Mettre à jour sur Firebase si possible
+    if (updatedCard.firebaseId) {
+        try {
+            syncStatus.value = 'syncing'
+            await firebaseService.updateCard(updatedCard.firebaseId, {
+                text: updatedCard.text,
+                mood: updatedCard.mood
+            })
+            syncStatus.value = 'synced'
+        } catch (error) {
+            console.error('Erreur mise à jour Firebase:', error)
+            syncStatus.value = 'error'
+        }
+    }
+
+    cancelEditing()
 }
 
 const deleteCard = async (cardId) => {
-  if (!confirm('Es-tu sûr de vouloir supprimer cette card ?')) return
+    if (!confirm('Es-tu sûr de vouloir supprimer cette card ?')) return
 
-  const cardIndex = cards.value.findIndex(card => card.id === cardId)
-  if (cardIndex === -1) return
+    const cardIndex = cards.value.findIndex(card => card.id === cardId)
+    if (cardIndex === -1) return
 
-  const cardToDelete = cards.value[cardIndex]
+    const cardToDelete = cards.value[cardIndex]
 
-  // Supprimer localement
-  cards.value = cards.value.filter(card => card.id !== cardId)
-  saveCardsLocally(cards.value)
+    // Supprimer localement
+    cards.value = cards.value.filter(card => card.id !== cardId)
+    saveCardsLocally(cards.value)
 
-  // Supprimer sur Firebase si possible
-  if (cardToDelete.firebaseId) {
-    try {
-      syncStatus.value = 'syncing'
-      await firebaseService.deleteCard(cardToDelete.firebaseId)
-      syncStatus.value = 'synced'
-    } catch (error) {
-      console.error('Erreur suppression Firebase:', error)
-      syncStatus.value = 'error'
+    // Supprimer sur Firebase si possible
+    if (cardToDelete.firebaseId) {
+        try {
+            syncStatus.value = 'syncing'
+            await firebaseService.deleteCard(cardToDelete.firebaseId)
+            syncStatus.value = 'synced'
+        } catch (error) {
+            console.error('Erreur suppression Firebase:', error)
+            syncStatus.value = 'error'
+        }
     }
-  }
 }
 
 const syncWithFirebase = async () => {
-  try {
-    syncStatus.value = 'syncing'
+    try {
+        syncStatus.value = 'syncing'
 
-    // Charger les données locales
-    const localCards = loadCards()
+        // Charger les données locales
+        const localCards = loadCards()
 
-    // Charger depuis Firebase
-    const firebaseCards = await firebaseService.loadCards()
+        // Charger depuis Firebase
+        const firebaseCards = await firebaseService.loadCards()
 
-    if (firebaseCards.length === 0 && localCards.length > 0) {
-      // Migrer les données locales vers Firebase
-      console.log('Migration des données locales vers Firebase...')
-      await firebaseService.migrateLocalData(localCards)
-      
-      // Recharger depuis Firebase après migration
-      const migratedCards = await firebaseService.loadCards()
-      cards.value = migratedCards
-    } else {
-      // Utiliser les données Firebase
-      cards.value = firebaseCards
+        if (firebaseCards.length === 0 && localCards.length > 0) {
+            // Migrer les données locales vers Firebase
+            console.log('Migration des données locales vers Firebase...')
+            await firebaseService.migrateLocalData(localCards)
+
+            // Recharger depuis Firebase après migration
+            const migratedCards = await firebaseService.loadCards()
+            cards.value = migratedCards
+        } else {
+            // Utiliser les données Firebase
+            cards.value = firebaseCards
+        }
+
+        saveCardsLocally(cards.value)
+        syncStatus.value = 'synced'
+    } catch (error) {
+        console.error('Erreur de synchronisation:', error)
+        syncStatus.value = 'error'
+
+        // Fallback sur les données locales
+        cards.value = loadCards()
     }
-
-    saveCardsLocally(cards.value)
-    syncStatus.value = 'synced'
-  } catch (error) {
-    console.error('Erreur de synchronisation:', error)
-    syncStatus.value = 'error'
-    
-    // Fallback sur les données locales
-    cards.value = loadCards()
-  }
 }
 
 const updateOnlineStatus = () => {
-  isOnline.value = navigator.onLine
-  if (!isOnline.value) {
-    syncStatus.value = 'offline'
-  }
+    isOnline.value = navigator.onLine
+    if (!isOnline.value) {
+        syncStatus.value = 'offline'
+    }
 }
 
 onMounted(async () => {
-  // Charger l'utilisateur actuel
-  currentUser.value = loadCurrentUser()
-  
-  if (!currentUser.value) {
-    router.push('/')
-    return
-  }
+    // Charger l'utilisateur actuel
+    currentUser.value = loadCurrentUser()
 
-  // Synchronisation initiale
-  await syncWithFirebase()
-
-  // Écouter les changements en temps réel
-  unsubscribeFirebase.value = firebaseService.onCardsChange((firebaseCards, error) => {
-    if (error) {
-      console.error('Erreur temps réel Firebase:', error)
-      syncStatus.value = 'error'
-      return
+    if (!currentUser.value) {
+        router.push('/')
+        return
     }
 
-    if (firebaseCards) {
-      cards.value = firebaseCards
-      saveCardsLocally(cards.value)
-      syncStatus.value = 'synced'
-    }
-  })
+    // Synchronisation initiale
+    await syncWithFirebase()
 
-  // Générer les éléments de fond
-  generateStars()
-  generateShapes()
+    // Écouter les changements en temps réel
+    unsubscribeFirebase.value = firebaseService.onCardsChange((firebaseCards, error) => {
+        if (error) {
+            console.error('Erreur temps réel Firebase:', error)
+            syncStatus.value = 'error'
+            return
+        }
 
-  // CSS dynamique pour les animations
-  const style = document.createElement('style')
-  let css = ''
-  shapes.value.forEach(shape => {
-    css += `
+        if (firebaseCards) {
+            cards.value = firebaseCards
+            saveCardsLocally(cards.value)
+            syncStatus.value = 'synced'
+        }
+    })
+
+    // Générer les éléments de fond
+    generateStars()
+    generateShapes()
+
+    // CSS dynamique pour les animations
+    const style = document.createElement('style')
+    let css = ''
+    shapes.value.forEach(shape => {
+        css += `
     @keyframes float-${shape.id} {
       0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
       25% { transform: translateY(-15px) translateX(8px) rotate(90deg); }
       50% { transform: translateY(-8px) translateX(-12px) rotate(180deg); }
       75% { transform: translateY(-20px) translateX(4px) rotate(270deg); }
     }`
-  })
-  style.textContent = css
-  document.head.appendChild(style)
+    })
+    style.textContent = css
+    document.head.appendChild(style)
 
-  // Écouter les changements de connexion
-  window.addEventListener('online', updateOnlineStatus)
-  window.addEventListener('offline', updateOnlineStatus)
-  updateOnlineStatus()
+    // Écouter les changements de connexion
+    window.addEventListener('online', updateOnlineStatus)
+    window.addEventListener('offline', updateOnlineStatus)
+    updateOnlineStatus()
 })
 
 onUnmounted(() => {
-  if (unsubscribeFirebase.value) {
-    unsubscribeFirebase.value()
-  }
-  
-  window.removeEventListener('online', updateOnlineStatus)
-  window.removeEventListener('offline', updateOnlineStatus)
+    if (unsubscribeFirebase.value) {
+        unsubscribeFirebase.value()
+    }
+
+    window.removeEventListener('online', updateOnlineStatus)
+    window.removeEventListener('offline', updateOnlineStatus)
 })
 
 // Retry pour la synchronisation
-const retrySync = async () => { 
-  if (!isOnline.value) {
-    alert('Pas de connexion internet')
-    return
-  }
-  
-  await syncWithFirebase()
+const retrySync = async () => {
+    if (!isOnline.value) {
+        alert('Pas de connexion internet')
+        return
+    }
+
+    await syncWithFirebase()
 }
 </script>
 
 <style scoped>
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 .dashboard {
-  min-height: 100vh;
-  background-color: black;
-  position: relative;
-  overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    background-color: black;
+    position: relative;
+    overflow-x: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
 }
 
 .star {
-  position: absolute;
-  background-color: white;
-  border-radius: 50%;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    position: absolute;
+    background-color: white;
+    border-radius: 50%;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .floating-shape {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.2;
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.2;
 }
 
 .main-container {
-  position: relative;
-  z-index: 10;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-  min-height: 100vh;
+    position: relative;
+    z-index: 10;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    min-height: 100vh;
 }
 
 .user-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .sync-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
 }
 
 .status-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    transition: all 0.3s ease;
 }
 
 .status-indicator.synced {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .status-indicator.syncing {
-  background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .status-indicator.error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  cursor: pointer;
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    cursor: pointer;
 }
 
 .status-indicator.error:hover {
-  background: rgba(239, 68, 68, 0.3);
-  transform: scale(1.05);
+    background: rgba(239, 68, 68, 0.3);
+    transform: scale(1.05);
 }
 
 .status-indicator.offline {
-  background: rgba(156, 163, 175, 0.2);
-  color: #9ca3af;
-  border: 1px solid rgba(156, 163, 175, 0.3);
+    background: rgba(156, 163, 175, 0.2);
+    color: #9ca3af;
+    border: 1px solid rgba(156, 163, 175, 0.3);
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+    animation: spin 1s linear infinite;
 }
 
 .status-text {
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
 }
 
 .synced-text {
-  color: #22c55e;
+    color: #22c55e;
 }
 
 .syncing-text {
-  color: #3b82f6;
+    color: #3b82f6;
 }
 
 .error-text {
-  color: #ef4444;
+    color: #ef4444;
 }
 
 .offline-text {
-  color: #9ca3af;
+    color: #9ca3af;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .user-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .user-avatar {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .user-name {
-  color: white;
-  font-weight: 300;
-  font-size: 1.25rem;
-  margin: 0;
-  letter-spacing: 0.02em;
+    color: white;
+    font-weight: 300;
+    font-size: 1.25rem;
+    margin: 0;
+    letter-spacing: 0.02em;
 }
 
 .user-description {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.875rem;
-  margin: 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.875rem;
+    margin: 0;
 }
 
 .change-user-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.7);
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
 }
 
 .change-user-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: scale(1.05);
 }
 
 .content-area {
-  display: grid;
-  gap: 2rem;
+    display: grid;
+    gap: 2rem;
 }
 
-.create-section, .timeline-section {
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 2rem;
+.create-section,
+.timeline-section {
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 2rem;
 }
 
 .section-header {
-  margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .section-header h3 {
-  color: white;
-  font-weight: 300;
-  font-size: 1.125rem;
-  margin: 0 0 0.25rem 0;
-  letter-spacing: 0.02em;
+    color: white;
+    font-weight: 300;
+    font-size: 1.125rem;
+    margin: 0 0 0.25rem 0;
+    letter-spacing: 0.02em;
 }
 
 .section-header p {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.875rem;
-  margin: 0;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.875rem;
+    margin: 0;
 }
 
 .card-creator {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 .input-label {
-  display: block;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
+    display: block;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
 }
 
 .mood-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.75rem;
 }
 
 .mood-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .mood-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
 }
 
 .mood-btn.selected {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
-  color: white;
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: white;
 }
 
 .mood-emoji {
-  font-size: 1.5rem;
+    font-size: 1.5rem;
 }
 
 .mood-name {
-  font-size: 0.75rem;
-  font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .text-input-section {
-  position: relative;
+    position: relative;
 }
 
 .card-textarea {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 1rem;
-  color: white;
-  font-size: 0.875rem;
-  font-family: inherit;
-  resize: vertical;
-  min-height: 100px;
-  transition: all 0.3s ease;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    color: white;
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 100px;
+    transition: all 0.3s ease;
 }
 
 .card-textarea:focus {
-  outline: none;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .card-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .char-count {
-  position: absolute;
-  bottom: 0.5rem;
-  right: 0.75rem;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.75rem;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .char-count.limit-warning {
-  color: #ef4444;
+    color: #ef4444;
 }
 
 .create-btn {
-  align-self: flex-start;
-  padding: 0.875rem 2rem;
-  border: 1px solid;
-  border-radius: 8px;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+    align-self: flex-start;
+    padding: 0.875rem 2rem;
+    border: 1px solid;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .create-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .create-btn:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .creating-text {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+    animation: spin 1s linear infinite;
 }
 
 .timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .empty-timeline {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: rgba(255, 255, 255, 0.4);
+    text-align: center;
+    padding: 3rem 1rem;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .empty-icon {
-  font-size: 2rem;
-  margin-bottom: 1rem;
+    font-size: 2rem;
+    margin-bottom: 1rem;
 }
 
 .timeline-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-  position: relative;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
 .timeline-card.editing {
-  border-color: rgba(99, 102, 241, 0.4);
-  background: rgba(99, 102, 241, 0.05);
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(99, 102, 241, 0.05);
 }
 
 .card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .card-avatar {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  object-fit: cover;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
 .card-meta {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .card-user {
-  color: white;
-  font-weight: 500;
-  font-size: 0.875rem;
+    color: white;
+    font-weight: 500;
+    font-size: 0.875rem;
 }
 
 .card-time-container {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
 .card-time {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
 }
 
 .edited-indicator {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.7rem;
-  font-style: italic;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.7rem;
+    font-style: italic;
 }
 
 .card-mood {
-  font-size: 1.25rem;
+    font-size: 1.25rem;
 }
 
 .card-actions {
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
 .timeline-card:hover .card-actions {
-  opacity: 1;
+    opacity: 1;
 }
 
 .action-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.6);
-  width: 2rem;
-  height: 2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.6);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.9);
-  transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    transform: scale(1.05);
 }
 
 .delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
 }
 
 .edit-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
-  color: #6366f1;
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #6366f1;
 }
 
 /* Edit Mode Styles */
 .edit-mode {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .edit-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .edit-header h4 {
-  color: white;
-  font-weight: 500;
-  font-size: 0.875rem;
-  margin: 0;
+    color: white;
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin: 0;
 }
 
 .edit-actions {
-  display: flex;
-  gap: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
 }
 
-.save-btn, .cancel-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.save-btn,
+.cancel-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .save-btn {
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  color: #6366f1;
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #6366f1;
 }
 
 .save-btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.3);
-  transform: translateY(-1px);
+    background: rgba(99, 102, 241, 0.3);
+    transform: translateY(-1px);
 }
 
 .save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .cancel-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
 }
 
 .edit-label {
-  display: block;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.75rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
+    display: block;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
 }
 
 .edit-mood-options {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .edit-mood-btn {
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 1rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
 }
 
 .edit-mood-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.1);
 }
 
 .edit-mood-btn.selected {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
 }
 
 .edit-text {
-  position: relative;
+    position: relative;
 }
 
 .edit-textarea {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  padding: 0.75rem;
-  color: white;
-  font-size: 0.875rem;
-  font-family: inherit;
-  resize: vertical;
-  transition: all 0.2s ease;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 0.75rem;
+    color: white;
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s ease;
 }
 
 .edit-textarea:focus {
-  outline: none;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(99, 102, 241, 0.4);
+    outline: none;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(99, 102, 241, 0.4);
 }
 
 .edit-char-count {
-  position: absolute;
-  bottom: 0.5rem;
-  right: 0.75rem;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.4);
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.75rem;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .card-content p {
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.5;
-  margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.5;
+    margin: 0;
 }
 
 .processing-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(2px);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(2px);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .processing-text {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.875rem;
-  font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.875rem;
+    font-weight: 500;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .main-container {
-    padding: 1rem;
-  }
-  
-  .user-header {
-    padding: 1rem;
-  }
-  
-  .create-section, .timeline-section {
-    padding: 1.5rem;
-  }
-  
-  .mood-options {
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  }
+    .main-container {
+        padding: 1rem;
+    }
+
+    .user-header {
+        padding: 1rem;
+    }
+
+    .create-section,
+    .timeline-section {
+        padding: 1.5rem;
+    }
+
+    .mood-options {
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    }
 }
 </style>
