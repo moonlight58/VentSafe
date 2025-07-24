@@ -12,8 +12,8 @@ const routes = [
     component: SelectAvatar,
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
+    path: '/vent',
+    name: 'vent',
     component: DashBoard,
   }
 ];

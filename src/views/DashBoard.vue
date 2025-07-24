@@ -612,7 +612,7 @@ export default {
 
     // Set default processing time
     onMounted(() => {
-      selectedProcessingTime.value = processingTimeOptions.value[2]; // 15 minutes default
+      selectedProcessingTime.value = processingTimeOptions.value[4]; // 15 minutes default
     });
 
     // Computed properties
