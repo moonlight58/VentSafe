@@ -820,6 +820,20 @@ onUnmounted(() => {
   justify-content: flex-end;
 }
 
+.color-picker {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.color-option {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
 .create-btn {
   background-color: #6366f1;
   color: white;
