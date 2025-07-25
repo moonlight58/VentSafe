@@ -329,7 +329,6 @@ const loadUsers = async () => {
       users.value = firebaseUsers;
       loading.value = false;
 
-      // 🔍 AJOUTEZ CETTE LIGNE DE DEBUG
       console.log("📊 Utilisateurs chargés depuis Firebase:", firebaseUsers);
       debugFirebaseUsers(); // Appelez la fonction de debug
 
@@ -349,16 +348,16 @@ const migrateDefaultUsers = async () => {
     {
       id: 1,
       name: "Moon",
-      avatar: "/pfp/moon.webp", // Adaptez le chemin selon votre structure
+      avatar: "/pfp/moon.webp",
       color: "#6366f1",
-      description: "Rêveur de pensées nocturnes",
+      description: "Dreamer of night thoughts",
     },
     {
       id: 2,
       name: "Kouromo",
-      avatar: "/pfp/kouromo.webp", // Adaptez le chemin selon votre structure
+      avatar: "/pfp/kouromo.webp",
       color: "#f59e0b",
-      description: "Énergie brillante et chaleur",
+      description: "Bright energy and warmth",
     },
   ];
 

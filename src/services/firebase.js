@@ -193,38 +193,55 @@ class FirebaseService {
 
   // ==================== GESTION DES CARDS ====================
 
-  // Écouter les cartes d'un utilisateur spécifique en temps réel
-  listenToUserCards(userId, callback) {
-    const unsubscribe = onValue(
-      this.cardsRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          // Filtrer les cartes pour cet utilisateur seulement
-          const userCards = Object.values(data)
-            .filter((card) => card.user && card.user.id === userId)
-            .map((card) => ({
-              ...card,
-              timestamp: new Date(card.timestamp),
-              editedAt: card.editedAt ? new Date(card.editedAt) : null,
-              processingUntil: card.processingUntil
-                ? new Date(card.processingUntil)
-                : null,
-            }))
-            .sort((a, b) => b.timestamp - a.timestamp);
-
-          callback(userCards);
-        } else {
-          callback([]);
+  // CORRECTION: Écouter toutes les cartes visibles (pas seulement celles d'un utilisateur)
+  listenToAllVisibleCards(callback) {
+    try {
+      const unsubscribe = onValue(
+        this.cardsRef,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const cards = Object.keys(data)
+              .map((key) => ({
+                firebaseId: key,
+                ...data[key],
+                // Reconstituer l'objet user et mood depuis les données aplaties
+                user: {
+                  id: data[key].userId,
+                  name: data[key].userName,
+                  avatar: data[key].userAvatar,
+                  color: data[key].userColor,
+                },
+                mood: {
+                  id: data[key].moodId,
+                  name: data[key].moodName,
+                  emoji: data[key].moodEmoji,
+                },
+              }))
+              // CORRECTION: Filtrer seulement les cartes visibles
+              .filter((card) => card.isVisibleToOthers === true)
+              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            callback(cards);
+          } else {
+            callback([]);
+          }
+        },
+        (error) => {
+          console.error("Erreur écoute cartes Firebase:", error);
+          callback([], error);
         }
-      },
-      (error) => {
-        console.error("Erreur écoute Firebase:", error);
-        callback([], error);
-      }
-    );
+      );
+      return unsubscribe;
+    } catch (error) {
+      console.error("Error setting up listener:", error);
+      throw error;
+    }
+  }
 
-    return unsubscribe;
+  // CORRECTION: Garder aussi l'ancienne méthode pour la compatibilité
+  listenToUserCards(userId, callback) {
+    return this.listenToAllVisibleCards(callback);
   }
 
   // Récupérer les cartes d'un utilisateur (méthode ponctuelle)
@@ -235,9 +252,20 @@ class FirebaseService {
         const data = snapshot.val();
         // Filtrer les cartes pour cet utilisateur seulement
         return Object.values(data)
-          .filter((card) => card.user && card.user.id === userId)
+          .filter((card) => card.userId === userId)
           .map((card) => ({
             ...card,
+            user: {
+              id: card.userId,
+              name: card.userName,
+              avatar: card.userAvatar,
+              color: card.userColor,
+            },
+            mood: {
+              id: card.moodId,
+              name: card.moodName,
+              emoji: card.moodEmoji,
+            },
             timestamp: new Date(card.timestamp),
             editedAt: card.editedAt ? new Date(card.editedAt) : null,
             processingUntil: card.processingUntil
@@ -253,32 +281,33 @@ class FirebaseService {
     }
   }
 
-  // Sauvegarder une nouvelle card
+  // CORRECTION: Sauvegarder sur Realtime Database (pas Firestore)
   async saveCard(card) {
     try {
       const newCardRef = push(this.cardsRef);
       const cardData = {
-        ...card,
-        firebaseId: newCardRef.key,
+        userId: card.user.id,
+        userName: card.user.name,
+        userAvatar: card.user.avatar,
+        userColor: card.user.color,
+        moodId: card.mood.id,
+        moodName: card.mood.name,
+        moodEmoji: card.mood.emoji,
+        text: card.text,
         timestamp: card.timestamp.toISOString(),
-        editedAt: card.editedAt ? card.editedAt.toISOString() : null,
         processingUntil: card.processingUntil
           ? card.processingUntil.toISOString()
           : null,
-        // Assurer que les données utilisateur sont incluses
-        user: {
-          id: card.user.id,
-          name: card.user.name,
-          avatar: card.user.avatar,
-          color: card.user.color,
-          description: card.user.description,
-        },
+        processingTimeMinutes: card.processingTimeMinutes || 0,
+        // AJOUT: Champ pour la visibilité
+        isVisibleToOthers: card.isVisibleToOthers || false,
+        createdAt: new Date().toISOString(),
       };
 
       await set(newCardRef, cardData);
       return newCardRef.key;
     } catch (error) {
-      console.error("Erreur sauvegarde Firebase:", error);
+      console.error("Error saving card:", error);
       throw error;
     }
   }
@@ -303,6 +332,14 @@ class FirebaseService {
       }
       if (updateData.processingUntil === null) {
         updateData.processingUntil = null;
+      }
+
+      // CORRECTION: Gérer la mise à jour du mood s'il est fourni
+      if (updateData.mood) {
+        updateData.moodId = updateData.mood.id;
+        updateData.moodName = updateData.mood.name;
+        updateData.moodEmoji = updateData.mood.emoji;
+        delete updateData.mood; // Supprimer l'objet mood original
       }
 
       await update(cardRef, updateData);
@@ -331,13 +368,25 @@ class FirebaseService {
       const snapshot = await get(this.cardsRef);
       if (snapshot.exists()) {
         const data = snapshot.val();
-        return Object.values(data)
-          .map((card) => ({
-            ...card,
-            timestamp: new Date(card.timestamp),
-            editedAt: card.editedAt ? new Date(card.editedAt) : null,
-            processingUntil: card.processingUntil
-              ? new Date(card.processingUntil)
+        return Object.keys(data)
+          .map((key) => ({
+            firebaseId: key,
+            ...data[key],
+            user: {
+              id: data[key].userId,
+              name: data[key].userName,
+              avatar: data[key].userAvatar,
+              color: data[key].userColor,
+            },
+            mood: {
+              id: data[key].moodId,
+              name: data[key].moodName,
+              emoji: data[key].moodEmoji,
+            },
+            timestamp: new Date(data[key].timestamp),
+            editedAt: data[key].editedAt ? new Date(data[key].editedAt) : null,
+            processingUntil: data[key].processingUntil
+              ? new Date(data[key].processingUntil)
               : null,
           }))
           .sort((a, b) => b.timestamp - a.timestamp);
@@ -356,13 +405,25 @@ class FirebaseService {
       (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const cards = Object.values(data)
-            .map((card) => ({
-              ...card,
-              timestamp: new Date(card.timestamp),
-              editedAt: card.editedAt ? new Date(card.editedAt) : null,
-              processingUntil: card.processingUntil
-                ? new Date(card.processingUntil)
+          const cards = Object.keys(data)
+            .map((key) => ({
+              firebaseId: key,
+              ...data[key],
+              user: {
+                id: data[key].userId,
+                name: data[key].userName,
+                avatar: data[key].userAvatar,
+                color: data[key].userColor,
+              },
+              mood: {
+                id: data[key].moodId,
+                name: data[key].moodName,
+                emoji: data[key].moodEmoji,
+              },
+              timestamp: new Date(data[key].timestamp),
+              editedAt: data[key].editedAt ? new Date(data[key].editedAt) : null,
+              processingUntil: data[key].processingUntil
+                ? new Date(data[key].processingUntil)
                 : null,
             }))
             .sort((a, b) => b.timestamp - a.timestamp);

@@ -676,8 +676,9 @@ export default {
 
       if (cardIndex === -1) return;
 
-      // Remove processing time
+      // Remove processing time ET rendre visible aux autres
       cards.value[cardIndex].processingUntil = null;
+      cards.value[cardIndex].isVisibleToOthers = true; // AJOUT
 
       // Save locally
       saveCardsLocally(cards.value);
@@ -688,6 +689,7 @@ export default {
           syncStatus.value = "syncing";
           await firebaseService.updateCard(card.firebaseId, {
             processingUntil: null,
+            isVisibleToOthers: true, // AJOUT
           });
           syncStatus.value = "synced";
         } catch (error) {
@@ -715,10 +717,33 @@ export default {
         clearInterval(processingTimeIntervals.value.get(intervalKey));
       }
 
-      const interval = setInterval(() => {
+      const interval = setInterval(async () => {
         if (!isCardInProcessingTime(card)) {
           clearInterval(interval);
           processingTimeIntervals.value.delete(intervalKey);
+
+          // AJOUT: Quand le temps est écoulé, rendre la carte visible automatiquement
+          const cardIndex = cards.value.findIndex(
+            (c) =>
+              (card.firebaseId && c.firebaseId === card.firebaseId) ||
+              (card.id && c.id === card.id)
+          );
+
+          if (cardIndex !== -1) {
+            cards.value[cardIndex].isVisibleToOthers = true;
+            saveCardsLocally(cards.value);
+
+            // Update Firebase
+            if (card.firebaseId) {
+              try {
+                await firebaseService.updateCard(card.firebaseId, {
+                  isVisibleToOthers: true,
+                });
+              } catch (error) {
+                console.error("Error auto-updating card visibility:", error);
+              }
+            }
+          }
 
           // Force reactivity update
           cards.value = [...cards.value];
@@ -805,11 +830,6 @@ export default {
       isCreating.value = true;
       syncStatus.value = "syncing";
 
-      // Generate a more unique temporary ID
-      const tempId = `temp-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-
       // Calculate processing until time
       const processingUntil =
         selectedProcessingTime.value.value > 0
@@ -819,7 +839,6 @@ export default {
           : null;
 
       const newCard = {
-        id: tempId,
         user: currentUser.value,
         mood: selectedMood.value,
         text: cardText.value.trim(),
@@ -827,54 +846,41 @@ export default {
         processingUntil: processingUntil,
         processingTimeMinutes: selectedProcessingTime.value.value,
         isProcessing: true,
+        // AJOUT: Marquer si la carte est visible pour les autres
+        isVisibleToOthers: selectedProcessingTime.value.value === 0, // Immediate = visible
       };
 
-      // Add locally first for fast UX
-      cards.value.unshift(newCard);
-      saveCardsLocally(cards.value);
-
       try {
-        // Save to Firebase
+        // MODIFICATION: Sauvegarder directement sur Firebase SANS ajouter localement d'abord
         const firebaseId = await firebaseService.saveCard(newCard);
 
-        // Update the card with Firebase ID
-        const cardIndex = cards.value.findIndex((card) => card.id === tempId);
-        if (cardIndex !== -1) {
-          cards.value[cardIndex] = {
-            ...cards.value[cardIndex],
-            firebaseId: firebaseId,
-            isProcessing: false,
-          };
-          saveCardsLocally(cards.value);
-
-          // Setup processing time countdown if needed
-          if (processingUntil) {
-            setupProcessingTimeCountdown(cards.value[cardIndex]);
-          }
-        }
+        // MODIFICATION: La carte sera ajoutée automatiquement via le listener Firebase
+        // donc on n'ajoute rien manuellement à cards.value
 
         syncStatus.value = "synced";
         console.log("Card saved to Firebase:", firebaseId);
       } catch (error) {
-        console.error("Firebase error, keeping card locally:", error);
+        console.error("Firebase error, creating local card:", error);
         syncStatus.value = "error";
 
-        // Simulate local processing
-        setTimeout(() => {
-          const cardIndex = cards.value.findIndex((card) => card.id === tempId);
-          if (cardIndex !== -1) {
-            cards.value[cardIndex] = {
-              ...cards.value[cardIndex],
-              isProcessing: false,
-            };
-            saveCardsLocally(cards.value);
+        // SEULEMENT en cas d'erreur Firebase, créer une carte locale
+        const tempId = `temp-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
 
-            // Setup processing time countdown if needed
-            if (processingUntil) {
-              setupProcessingTimeCountdown(cards.value[cardIndex]);
-            }
-          }
-        }, 3000);
+        const localCard = {
+          ...newCard,
+          id: tempId,
+          isProcessing: false, // Marquer comme non-processing pour l'affichage local
+        };
+
+        cards.value.unshift(localCard);
+        saveCardsLocally(cards.value);
+
+        // Setup processing time countdown if needed
+        if (processingUntil) {
+          setupProcessingTimeCountdown(localCard);
+        }
       }
 
       // Clean up form
@@ -951,9 +957,9 @@ export default {
       if (cardToEdit.firebaseId) {
         try {
           await firebaseService.updateCard(cardToEdit.firebaseId, {
-            mood: editMood.value,
+            mood: editMood.value, // Le service Firebase gère maintenant l'aplatissement
             text: editText.value.trim(),
-            editedAt: new Date().toISOString(),
+            editedAt: new Date(),
           });
           syncStatus.value = "synced";
         } catch (error) {
@@ -1083,11 +1089,15 @@ export default {
       if (!currentUser.value) return;
 
       try {
-        unsubscribeFirebase.value = firebaseService.listenToUserCards(
-          currentUser.value.id,
+        // CORRECTION: Utiliser la bonne méthode
+        unsubscribeFirebase.value = firebaseService.listenToAllVisibleCards(
           (updatedCards) => {
-            // Fusionner avec les cartes locales non synchronisées
-            const localCards = cards.value.filter((card) => !card.firebaseId);
+            // Garder seulement les cartes locales non synchronisées de l'utilisateur actuel
+            const localCards = cards.value.filter(
+              (card) =>
+                !card.firebaseId && card.user.id === currentUser.value.id
+            );
+
             const firebaseCards = updatedCards.map((card) => ({
               ...card,
               timestamp: new Date(card.timestamp),
@@ -1102,9 +1112,13 @@ export default {
               (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
             );
 
-            // Configurer les comptes à rebours pour les cartes avec temps de traitement
+            // Configurer les comptes à rebours pour les cartes de l'utilisateur actuel avec temps de traitement
             cards.value.forEach((card) => {
-              if (card.processingUntil && isCardInProcessingTime(card)) {
+              if (
+                card.user.id === currentUser.value.id &&
+                card.processingUntil &&
+                isCardInProcessingTime(card)
+              ) {
                 setupProcessingTimeCountdown(card);
               }
             });
