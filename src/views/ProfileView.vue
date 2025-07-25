@@ -1,0 +1,1327 @@
+<template>
+  <div class="app-container">
+    <!-- Animated background -->
+    <div class="background">
+      <!-- Stars -->
+      <div
+        v-for="star in stars"
+        :key="star.id"
+        class="star"
+        :style="{
+          left: star.x + '%',
+          top: star.y + '%',
+          width: star.size + 'px',
+          height: star.size + 'px',
+          animationDelay: star.delay + 's',
+          animationDuration: star.duration + 's',
+        }"
+      ></div>
+
+      <!-- Floating colored shapes -->
+      <div
+        v-for="shape in shapes"
+        :key="shape.id"
+        class="floating-shape"
+        :style="{
+          width: shape.size + 'px',
+          height: shape.size + 'px',
+          left: shape.x + '%',
+          top: shape.y + '%',
+          backgroundColor: shape.color,
+          animation: `float-${shape.id} ${shape.duration}s ease-in-out infinite`,
+        }"
+      ></div>
+    </div>
+
+    <div class="main-container">
+      <!-- Navigation Header -->
+      <div class="nav-header">
+        <button @click="goBack" class="back-btn">
+          <span>←</span>
+        </button>
+        <h1 class="page-title">Mon Profil</h1>
+        <button @click="goToUserSelection" class="change-user-btn">
+          <span>⚡</span>
+        </button>
+      </div>
+
+      <!-- User not selected state -->
+      <div v-if="!currentUser" class="no-user-state">
+        <div class="empty-icon">👤</div>
+        <h2 class="empty-title">Aucun utilisateur sélectionné</h2>
+        <p class="empty-description">
+          Veuillez sélectionner un utilisateur pour voir votre profil
+        </p>
+        <button @click="goToUserSelection" class="select-user-btn">
+          Choisir un utilisateur
+        </button>
+      </div>
+
+      <!-- Profile Content -->
+      <div v-else class="profile-content">
+        <!-- Profile Header -->
+        <div class="profile-header">
+          <div class="avatar-section">
+            <div class="avatar-container">
+              <img
+                :src="currentUser.avatar"
+                :alt="currentUser.name"
+                class="profile-avatar"
+                :style="{ backgroundColor: currentUser.color + '33' }"
+              />
+              <div
+                class="avatar-glow"
+                :style="{ backgroundColor: currentUser.color }"
+              ></div>
+              <button
+                class="change-avatar-btn"
+                @click="changeAvatar"
+                title="Changer d'avatar"
+              >
+                📷
+              </button>
+            </div>
+            <div class="profile-info">
+              <h2 class="profile-name">{{ currentUser.name }}</h2>
+              <p class="profile-description">{{ currentUser.description }}</p>
+              <div
+                class="profile-badge"
+                :style="{
+                  borderColor: currentUser.color,
+                  color: currentUser.color,
+                }"
+              >
+                Utilisateur actif
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile Stats -->
+        <div class="profile-stats">
+          <div class="stat-card">
+            <div class="stat-icon">📝</div>
+            <div class="stat-info">
+              <div class="stat-number">{{ userStats.totalPosts }}</div>
+              <div class="stat-label">Publications</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎭</div>
+            <div class="stat-info">
+              <div class="stat-number">{{ userStats.favoriteEmoji }}</div>
+              <div class="stat-label">Humeur favorite</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📅</div>
+            <div class="stat-info">
+              <div class="stat-number">{{ userStats.joinDate }}</div>
+              <div class="stat-label">Membre depuis</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-info">
+              <div class="stat-number">{{ userStats.streak }}</div>
+              <div class="stat-label">Jours consécutifs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile Settings -->
+        <div class="profile-settings">
+          <div class="settings-header">
+            <h3 class="settings-title">Paramètres du profil</h3>
+            <p class="settings-subtitle">Personnalisez votre expérience</p>
+          </div>
+
+          <div class="settings-list">
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-name">Nom d'affichage</div>
+                <div class="setting-description">{{ currentUser.name }}</div>
+              </div>
+              <button class="setting-action" @click="editUsername">
+                <span>✏️</span>
+              </button>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-name">Description</div>
+                <div class="setting-description">
+                  {{ currentUser.description }}
+                </div>
+              </div>
+              <button class="setting-action" @click="editDescription">
+                <span>✏️</span>
+              </button>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-name">Couleur de profil</div>
+                <div class="setting-description">
+                  Personnalise votre identité visuelle
+                </div>
+              </div>
+              <div class="color-picker-container">
+                <div
+                  class="color-preview"
+                  :style="{ backgroundColor: currentUser.color }"
+                  @click="showColorPicker = !showColorPicker"
+                ></div>
+                <div v-if="showColorPicker" class="color-picker-dropdown">
+                  <div class="color-grid">
+                    <div
+                      v-for="color in predefinedColors"
+                      :key="color"
+                      class="color-option"
+                      :style="{ backgroundColor: color }"
+                      @click="changeColor(color)"
+                      :class="{ active: currentUser.color === color }"
+                    ></div>
+                  </div>
+                  <input
+                    type="color"
+                    :value="currentUser.color"
+                    @input="changeColor($event.target.value)"
+                    class="custom-color-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-name">Notifications</div>
+                <div class="setting-description">Gérer les alertes</div>
+              </div>
+              <div
+                class="toggle-switch"
+                :class="{ active: notificationsEnabled }"
+                @click="toggleNotifications"
+              >
+                <div class="toggle-handle"></div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-name">Mode sombre</div>
+                <div class="setting-description">Interface en mode nuit</div>
+              </div>
+              <div
+                class="toggle-switch"
+                :class="{ active: darkMode }"
+                @click="toggleDarkMode"
+              >
+                <div class="toggle-handle"></div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-name">Confidentialité</div>
+                <div class="setting-description">Profil privé</div>
+              </div>
+              <div
+                class="toggle-switch"
+                :class="{ active: privateProfile }"
+                @click="togglePrivateProfile"
+              >
+                <div class="toggle-handle"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <div class="actions-header">
+            <h3 class="actions-title">Actions rapides</h3>
+          </div>
+          <div class="actions-grid">
+            <button class="action-btn" @click="exportData">
+              <span class="action-icon">💾</span>
+              <span class="action-text">Exporter mes données</span>
+            </button>
+            <button class="action-btn" @click="shareProfile">
+              <span class="action-icon">🔗</span>
+              <span class="action-text">Partager le profil</span>
+            </button>
+            <button class="action-btn" @click="resetStats">
+              <span class="action-icon">🔄</span>
+              <span class="action-text">Réinitialiser stats</span>
+            </button>
+            <button class="action-btn danger" @click="deleteProfile">
+              <span class="action-icon">🗑️</span>
+              <span class="action-text">Supprimer profil</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="recent-activity">
+          <div class="activity-header">
+            <h3 class="activity-title">Activité récente</h3>
+            <button class="view-all-btn" @click="viewAllActivity">
+              Voir tout
+            </button>
+          </div>
+
+          <div v-if="recentActivity.length === 0" class="no-activity">
+            <div class="no-activity-icon">📋</div>
+            <p class="no-activity-text">Aucune activité récente</p>
+          </div>
+
+          <div v-else class="activity-list">
+            <div
+              v-for="activity in recentActivity"
+              :key="activity.id"
+              class="activity-item"
+            >
+              <div class="activity-emoji">{{ activity.emoji }}</div>
+              <div class="activity-info">
+                <div class="activity-text">{{ activity.text }}</div>
+                <div class="activity-time">{{ activity.time }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal pour édition du nom -->
+    <div v-if="showUsernameModal" class="modal-overlay" @click="closeModals">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Modifier le nom d'affichage</h3>
+          <button class="close-btn" @click="closeModals">×</button>
+        </div>
+        <div class="modal-body">
+          <input
+            v-model="editingUsername"
+            type="text"
+            placeholder="Nouveau nom..."
+            class="modal-input"
+            maxlength="20"
+            @keyup.enter="saveUsername"
+          />
+          <div class="char-counter">{{ editingUsername.length }}/20</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeModals">Annuler</button>
+          <button
+            class="btn-primary"
+            @click="saveUsername"
+            :disabled="!editingUsername.trim()"
+          >
+            Sauvegarder
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal pour édition de la description -->
+    <div v-if="showDescriptionModal" class="modal-overlay" @click="closeModals">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Modifier la description</h3>
+          <button class="close-btn" @click="closeModals">×</button>
+        </div>
+        <div class="modal-body">
+          <textarea
+            v-model="editingDescription"
+            placeholder="Nouvelle description..."
+            class="modal-textarea"
+            maxlength="100"
+            @keyup.ctrl.enter="saveDescription"
+          ></textarea>
+          <div class="char-counter">{{ editingDescription.length }}/100</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeModals">Annuler</button>
+          <button class="btn-primary" @click="saveDescription">
+            Sauvegarder
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de sélection d'avatar -->
+    <div v-if="showAvatarModal" class="modal-overlay" @click="closeModals">
+      <div class="modal-content avatar-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Choisir un avatar</h3>
+          <button class="close-btn" @click="closeModals">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="avatar-grid">
+            <div
+              v-for="avatar in availableAvatars"
+              :key="avatar"
+              class="avatar-option"
+              @click="changeUserAvatar(avatar)"
+              :class="{ active: currentUser.avatar === avatar }"
+            >
+              <img :src="avatar" :alt="'Avatar option'" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div v-if="showToast" class="toast" :class="toastType">
+      <span class="toast-icon">{{ toastIcon }}</span>
+      <span class="toast-message">{{ toastMessage }}</span>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { firebaseService } from "../services/firebase.js";
+
+const router = useRouter();
+
+// Reactive data
+const currentUser = ref(null);
+const stars = ref([]);
+const shapes = ref([]);
+const notificationsEnabled = ref(true);
+const darkMode = ref(false);
+const privateProfile = ref(false);
+const showColorPicker = ref(false);
+
+// Modals
+const showUsernameModal = ref(false);
+const showDescriptionModal = ref(false);
+const showAvatarModal = ref(false);
+const editingUsername = ref("");
+const editingDescription = ref("");
+
+// Toast
+const showToast = ref(false);
+const toastMessage = ref("");
+const toastType = ref("success");
+const toastIcon = ref("✅");
+
+// Predefined colors
+const predefinedColors = ref([
+  "#6366f1",
+  "#f59e0b",
+  "#10b981",
+  "#ec4899",
+  "#8b5cf6",
+  "#ef4444",
+  "#3b82f6",
+  "#f97316",
+  "#84cc16",
+  "#06b6d4",
+  "#8d4ba6",
+  "#be185d",
+  "#059669",
+  "#7c3aed",
+  "#dc2626",
+]);
+
+// Available avatars
+const availableAvatars = ref([
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Snuggles",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Princess",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Smokey",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Garfield",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Mittens",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Whiskers",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Shadow",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Luna",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Oreo",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Simba",
+]);
+
+// Mock data for demo
+const userStats = ref({
+  totalPosts: 12,
+  favoriteEmoji: "😊",
+  joinDate: "Jan 2024",
+  streak: 7,
+});
+
+const recentActivity = ref([
+  {
+    id: 1,
+    emoji: "📝",
+    text: "A publié une nouvelle pensée",
+    time: "Il y a 2 heures",
+  },
+  {
+    id: 2,
+    emoji: "🎭",
+    text: "A changé d'humeur vers joyeux",
+    time: "Il y a 1 jour",
+  },
+  {
+    id: 3,
+    emoji: "✨",
+    text: "A rejoint la communauté",
+    time: "Il y a 3 jours",
+  },
+]);
+
+// Functions
+const loadCurrentUser = () => {
+  const saved = localStorage.getItem("selectedUser");
+  if (saved) {
+    currentUser.value = JSON.parse(saved);
+    loadUserStats();
+  }
+};
+
+const loadUserStats = async () => {
+  if (currentUser.value && currentUser.value.firebaseId) {
+    try {
+      const cards = await firebaseService.getUserCards(currentUser.value.id);
+      userStats.value.totalPosts = cards.length;
+
+      // Calculer l'emoji favori
+      const emojiCount = {};
+      cards.forEach((card) => {
+        if (card.mood) {
+          emojiCount[card.mood] = (emojiCount[card.mood] || 0) + 1;
+        }
+      });
+
+      const favoriteEmoji = Object.keys(emojiCount).reduce(
+        (a, b) => (emojiCount[a] > emojiCount[b] ? a : b),
+        "😊"
+      );
+      userStats.value.favoriteEmoji = favoriteEmoji || "😊";
+
+      // Calculer le streak (simulation)
+      userStats.value.streak = Math.floor(Math.random() * 30) + 1;
+    } catch (error) {
+      console.error("Erreur chargement stats:", error);
+    }
+  }
+};
+
+const saveUserToFirebase = async () => {
+  if (currentUser.value && currentUser.value.firebaseId) {
+    try {
+      await firebaseService.updateUser(
+        currentUser.value.firebaseId,
+        currentUser.value
+      );
+      localStorage.setItem("selectedUser", JSON.stringify(currentUser.value));
+    } catch (error) {
+      console.error("Erreur sauvegarde Firebase:", error);
+      showToastMessage("Erreur de sauvegarde", "error", "❌");
+    }
+  }
+};
+
+const showToastMessage = (message, type = "success", icon = "✅") => {
+  toastMessage.value = message;
+  toastType.value = type;
+  toastIcon.value = icon;
+  showToast.value = true;
+
+  setTimeout(() => {
+    showToast.value = false;
+  }, 3000);
+};
+
+const closeModals = () => {
+  showUsernameModal.value = false;
+  showDescriptionModal.value = false;
+  showAvatarModal.value = false;
+  showColorPicker.value = false;
+};
+
+// Edit functions
+const editUsername = () => {
+  editingUsername.value = currentUser.value.name;
+  showUsernameModal.value = true;
+};
+
+const saveUsername = async () => {
+  if (
+    editingUsername.value.trim() &&
+    editingUsername.value !== currentUser.value.name
+  ) {
+    currentUser.value.name = editingUsername.value.trim();
+    await saveUserToFirebase();
+    showToastMessage("Nom mis à jour !", "success", "✅");
+  }
+  closeModals();
+};
+
+const editDescription = () => {
+  editingDescription.value = currentUser.value.description;
+  showDescriptionModal.value = true;
+};
+
+const saveDescription = async () => {
+  if (editingDescription.value !== currentUser.value.description) {
+    currentUser.value.description = editingDescription.value;
+    await saveUserToFirebase();
+    showToastMessage("Description mise à jour !", "success", "✅");
+  }
+  closeModals();
+};
+
+const changeColor = async (color) => {
+  currentUser.value.color = color;
+  await saveUserToFirebase();
+  showColorPicker.value = false;
+  showToastMessage("Couleur changée !", "success", "🎨");
+};
+
+const changeAvatar = () => {
+  showAvatarModal.value = true;
+};
+
+const changeUserAvatar = async (avatar) => {
+  currentUser.value.avatar = avatar;
+  await saveUserToFirebase();
+  closeModals();
+  showToastMessage("Avatar changé !", "success", "📷");
+};
+
+// Toggle functions
+const toggleNotifications = () => {
+  notificationsEnabled.value = !notificationsEnabled.value;
+  localStorage.setItem(
+    "notificationsEnabled",
+    JSON.stringify(notificationsEnabled.value)
+  );
+  showToastMessage(
+    notificationsEnabled.value
+      ? "Notifications activées"
+      : "Notifications désactivées",
+    "info",
+    notificationsEnabled.value ? "🔔" : "🔕"
+  );
+};
+
+const toggleDarkMode = () => {
+  darkMode.value = !darkMode.value;
+  localStorage.setItem("darkMode", JSON.stringify(darkMode.value));
+  showToastMessage(
+    darkMode.value ? "Mode sombre activé" : "Mode clair activé",
+    "info",
+    darkMode.value ? "🌙" : "☀️"
+  );
+};
+
+const togglePrivateProfile = () => {
+  privateProfile.value = !privateProfile.value;
+  localStorage.setItem("privateProfile", JSON.stringify(privateProfile.value));
+  showToastMessage(
+    privateProfile.value ? "Profil privé activé" : "Profil public activé",
+    "info",
+    privateProfile.value ? "🔒" : "🔓"
+  );
+};
+
+// Action functions
+const exportData = () => {
+  const data = {
+    user: currentUser.value,
+    stats: userStats.value,
+    settings: {
+      notifications: notificationsEnabled.value,
+      darkMode: darkMode.value,
+      privateProfile: privateProfile.value,
+    },
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `profil-${currentUser.value.name}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToastMessage("Données exportées !", "success", "💾");
+};
+
+const shareProfile = async () => {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `Profil de ${currentUser.value.name}`,
+        text: `Découvrez le profil de ${currentUser.value.name} sur VentSafe`,
+        url: window.location.href,
+      });
+    } catch (err) {
+      console.log("Partage annulé");
+    }
+  } else {
+    // Fallback pour copier l'URL
+    navigator.clipboard.writeText(window.location.href);
+    showToastMessage("Lien copié dans le presse-papier !", "success", "🔗");
+  }
+};
+
+const resetStats = () => {
+  if (confirm("Êtes-vous sûr de vouloir réinitialiser vos statistiques ?")) {
+    userStats.value = {
+      totalPosts: 0,
+      favoriteEmoji: "😊",
+      joinDate: new Date().toLocaleDateString("fr-FR", {
+        month: "short",
+        year: "numeric",
+      }),
+      streak: 0,
+    };
+    showToastMessage("Statistiques réinitialisées !", "success", "🔄");
+  }
+};
+
+const deleteProfile = () => {
+  if (
+    confirm(
+      "⚠️ ATTENTION : Cette action est irréversible !\n\nÊtes-vous sûr de vouloir supprimer définitivement votre profil et toutes vos données ?"
+    )
+  ) {
+    if (
+      confirm("Dernière confirmation : Supprimer définitivement le profil ?")
+    ) {
+      // Supprimer de Firebase
+      if (currentUser.value.firebaseId) {
+        firebaseService.deleteUser(currentUser.value.firebaseId);
+      }
+
+      // Nettoyer le localStorage
+      localStorage.removeItem("selectedUser");
+      localStorage.removeItem("users");
+
+      showToastMessage("Profil supprimé", "error", "🗑️");
+
+      setTimeout(() => {
+        router.push("/");
+      }, 2000);
+    }
+  }
+};
+
+const viewAllActivity = () => {
+  showToastMessage("Fonctionnalité en développement", "info", "ℹ️");
+};
+
+// Navigation functions
+const goBack = () => {
+  router.go(-1);
+};
+
+const goToUserSelection = () => {
+  router.push("/");
+};
+
+// Generate animated background elements
+const generateStars = () => {
+  for (let i = 0; i < 50; i++) {
+    stars.value.push({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      delay: Math.random() * 3,
+      duration: Math.random() * 3 + 2,
+    });
+  }
+};
+
+const generateShapes = () => {
+  const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6"];
+  for (let i = 0; i < 8; i++) {
+    shapes.value.push({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 200 + 100,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      duration: Math.random() * 10 + 15,
+    });
+  }
+};
+
+onMounted(() => {
+  loadCurrentUser();
+  generateStars();
+  generateShapes();
+
+  // Load settings
+  const savedNotifications = localStorage.getItem("notificationsEnabled");
+  if (savedNotifications) {
+    notificationsEnabled.value = JSON.parse(savedNotifications);
+  }
+
+  const savedDarkMode = localStorage.getItem("darkMode");
+  if (savedDarkMode) {
+    darkMode.value = JSON.parse(savedDarkMode);
+  }
+
+  const savedPrivateProfile = localStorage.getItem("privateProfile");
+  if (savedPrivateProfile) {
+    privateProfile.value = JSON.parse(savedPrivateProfile);
+  }
+
+  // Generate dynamic CSS for floating animations
+  const style = document.createElement("style");
+  let css = "";
+
+  shapes.value.forEach((shape) => {
+    css += `
+    @keyframes float-${shape.id} {
+      0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+      25% { transform: translateY(-20px) translateX(10px) rotate(90deg); }
+      50% { transform: translateY(-10px) translateX(-15px) rotate(180deg); }
+      75% { transform: translateY(-30px) translateX(5px) rotate(270deg); }
+    }`;
+  });
+
+  style.textContent = css;
+  document.head.appendChild(style);
+});
+</script>
+
+<style scoped>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  min-height: 100vh;
+  background-color: black;
+  position: relative;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+.star {
+  position: absolute;
+  background-color: white;
+  border-radius: 50%;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.floating-shape {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.2;
+}
+
+.main-container {
+  position: relative;
+  z-index: 10;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.back-btn,
+.change-user-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  font-size: 1.2rem;
+}
+
+.back-btn:hover,
+.change-user-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.05);
+}
+
+.page-title {
+  color: white;
+  font-weight: 300;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+}
+
+.no-user-state {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-title {
+  color: white;
+  font-weight: 300;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.empty-description {
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 2rem;
+}
+
+.select-user-btn {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #6366f1;
+  padding: 0.875rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.select-user-btn:hover {
+  background: rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+}
+
+.profile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.profile-header {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.avatar-container {
+  position: relative;
+}
+
+.change-avatar-btn {
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.profile-avatar {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.avatar-glow {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border-radius: 50%;
+  opacity: 0.3;
+  filter: blur(10px);
+  z-index: 1;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  color: white;
+  font-weight: 300;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.profile-description {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  background-color: rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  font-size: 2rem;
+}
+
+.stat-number {
+  color: white;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.profile-settings,
+.recent-activity {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.settings-header,
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.settings-title,
+.activity-title {
+  color: white;
+  font-weight: 300;
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.settings-subtitle {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+}
+
+.view-all-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+}
+
+.view-all-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.settings-list,
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.setting-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.setting-name {
+  color: white;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.setting-description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.setting-action {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.setting-action:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.05);
+}
+
+.color-preview {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 3rem;
+  height: 1.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-switch.active {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+.toggle-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.toggle-switch.active .toggle-handle {
+  transform: translateX(1.5rem);
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.activity-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.activity-emoji {
+  font-size: 1.5rem;
+}
+
+.activity-text {
+  color: white;
+  font-size: 0.875rem;
+}
+
+.activity-time {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.no-activity {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.no-activity-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.quick-actions {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.actions-title {
+  color: white;
+  font-weight: 300;
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.action-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.action-btn.danger {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .main-container {
+    padding: 1rem;
+  }
+
+  .avatar-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .profile-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .profile-name {
+    font-size: 1.5rem;
+  }
+}
+</style>

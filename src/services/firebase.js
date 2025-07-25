@@ -29,7 +29,169 @@ class FirebaseService {
     this.app = initializeApp(firebaseConfig);
     this.db = getDatabase(this.app);
     this.cardsRef = ref(this.db, "ventingCards");
+    this.usersRef = ref(this.db, "users");
   }
+
+  // ==================== GESTION DES UTILISATEURS ====================
+
+  // Récupérer tous les utilisateurs
+  async getUsers() {
+    try {
+      const snapshot = await get(this.usersRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        return Object.values(data).map((user) => ({
+          ...user,
+          createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
+          lastActive: user.lastActive ? new Date(user.lastActive) : new Date(),
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Erreur récupération utilisateurs:", error);
+      return [];
+    }
+  }
+
+  // Écouter les changements d'utilisateurs en temps réel
+  listenToUsers(callback) {
+    const unsubscribe = onValue(
+      this.usersRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const users = Object.values(data).map((user) => ({
+            ...user,
+            createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
+            lastActive: user.lastActive
+              ? new Date(user.lastActive)
+              : new Date(),
+          }));
+          callback(users);
+        } else {
+          callback([]);
+        }
+      },
+      (error) => {
+        console.error("Erreur écoute utilisateurs Firebase:", error);
+        callback([], error);
+      }
+    );
+    return unsubscribe;
+  }
+
+  // Créer un nouvel utilisateur
+  async createUser(userData) {
+    try {
+      const newUserRef = push(this.usersRef);
+      const userWithMeta = {
+        ...userData,
+        firebaseId: newUserRef.key,
+        createdAt: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        // Statistiques par défaut
+        stats: {
+          totalPosts: 0,
+          favoriteEmoji: "😊",
+          joinDate: new Date().toLocaleDateString("fr-FR", {
+            month: "short",
+            year: "numeric",
+          }),
+        },
+      };
+
+      await set(newUserRef, userWithMeta);
+      return { ...userWithMeta, id: newUserRef.key };
+    } catch (error) {
+      console.error("Erreur création utilisateur:", error);
+      throw error;
+    }
+  }
+
+  // Mettre à jour un utilisateur
+  async updateUser(firebaseId, updates) {
+    try {
+      const userRef = ref(this.db, `users/${firebaseId}`);
+      const updateData = {
+        ...updates,
+        lastActive: new Date().toISOString(),
+      };
+
+      await update(userRef, updateData);
+      return true;
+    } catch (error) {
+      console.error("Erreur mise à jour utilisateur:", error);
+      throw error;
+    }
+  }
+
+  // Supprimer un utilisateur
+  async deleteUser(firebaseId) {
+    try {
+      const userRef = ref(this.db, `users/${firebaseId}`);
+      await remove(userRef);
+      return true;
+    } catch (error) {
+      console.error("Erreur suppression utilisateur:", error);
+      throw error;
+    }
+  }
+
+  // Récupérer un utilisateur spécifique
+  async getUser(firebaseId) {
+    try {
+      const userRef = ref(this.db, `users/${firebaseId}`);
+      const snapshot = await get(userRef);
+      if (snapshot.exists()) {
+        const user = snapshot.val();
+        return {
+          ...user,
+          createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
+          lastActive: user.lastActive ? new Date(user.lastActive) : new Date(),
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error("Erreur récupération utilisateur:", error);
+      return null;
+    }
+  }
+
+  // Mettre à jour les statistiques d'un utilisateur
+  async updateUserStats(firebaseId, newStats) {
+    try {
+      const userRef = ref(this.db, `users/${firebaseId}/stats`);
+      await update(userRef, newStats);
+      return true;
+    } catch (error) {
+      console.error("Erreur mise à jour stats utilisateur:", error);
+      throw error;
+    }
+  }
+
+  // Migrer les utilisateurs existants du localStorage vers Firebase
+  async migrateLocalUsers(localUsers) {
+    try {
+      console.log("Migration des utilisateurs locaux vers Firebase...");
+
+      for (const user of localUsers) {
+        if (!user.firebaseId) {
+          const migratedUser = await this.createUser(user);
+          console.log(
+            `Utilisateur ${user.name} migré avec ID Firebase: ${migratedUser.firebaseId}`
+          );
+        }
+      }
+
+      console.log("Migration des utilisateurs terminée !");
+      return true;
+    } catch (error) {
+      console.error("Erreur migration utilisateurs:", error);
+      throw error;
+    }
+  }
+
+  // ==================== GESTION DES CARDS ====================
 
   // Écouter les cartes d'un utilisateur spécifique en temps réel
   listenToUserCards(userId, callback) {

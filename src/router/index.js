@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 // Import views
 import SelectAvatar from '../views/SelectAvatar.vue';
 import DashBoard from '../views/DashBoard.vue';
+import ProfileView from '../views/ProfileView.vue';
 
 // Define routes
 const routes = [
@@ -15,6 +16,11 @@ const routes = [
     path: '/vent',
     name: 'vent',
     component: DashBoard,
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: ProfileView,
   }
 ];
 
