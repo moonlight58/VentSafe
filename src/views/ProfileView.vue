@@ -41,7 +41,19 @@
         </button>
         <h1 class="page-title">Mon Profil</h1>
         <button @click="goToUserSelection" class="change-user-btn">
-          <span>⚡</span>
+          <svg
+            class="menu-icon"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+            />
+          </svg>
         </button>
       </div>
 
@@ -855,8 +867,7 @@ onMounted(() => {
   margin-bottom: 2rem;
 }
 
-.back-btn,
-.change-user-btn {
+.back-btn {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.7);
@@ -869,6 +880,27 @@ onMounted(() => {
   justify-content: center;
   transition: all 0.3s ease;
   font-size: 1.2rem;
+}
+
+.change-user-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.menu-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
 }
 
 .back-btn:hover,
@@ -1186,16 +1218,16 @@ onMounted(() => {
 .color-picker-dropdown {
   position: absolute;
   top: 2.5rem;
-  left: 0;
-  background: rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(2px);
   border-radius: 8px;
   padding: 0.5rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  z-index: 1000;
+  z-index: 1;
 }
 
 .color-grid {
@@ -1368,6 +1400,7 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
   z-index: 20;
 }
 
@@ -1377,7 +1410,7 @@ onMounted(() => {
   border-radius: 12px;
   padding: 2rem;
   max-width: 400px;
-  margin: auto;
+  margin: 5rem auto;
   position: relative;
 }
 
@@ -1396,7 +1429,6 @@ onMounted(() => {
   height: 2rem;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 1.5rem;
 }
 
 .modal-body {
@@ -1517,6 +1549,7 @@ onMounted(() => {
 @media (max-width: 768px) {
   .main-container {
     padding: 1rem;
+    margin-top: 4rem;
   }
 
   .avatar-section {

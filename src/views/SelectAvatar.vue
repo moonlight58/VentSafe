@@ -884,5 +884,10 @@ onUnmounted(() => {
     width: 2.5rem;
     height: 2.5rem;
   }
+
+  .clear-button {
+    top: 2.9rem;
+    right: 2.5rem;
+  }
 }
 </style>

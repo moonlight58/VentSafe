@@ -430,7 +430,12 @@
                   <span class="card-mood">{{ card.mood.emoji }}</span>
 
                   <!-- Card Actions -->
-                  <div v-if="!isCardProcessing(card) && card.user.id === currentUser.id" class="card-actions">
+                  <div
+                    v-if="
+                      !isCardProcessing(card) && card.user.id === currentUser.id
+                    "
+                    class="card-actions"
+                  >
                     <button
                       @click="startEditing(card)"
                       class="action-btn edit-btn"
@@ -1992,6 +1997,7 @@ export default {
 @media (max-width: 768px) {
   .main-container {
     padding: 1rem;
+    margin-top: 4rem;
   }
 
   .user-header {
