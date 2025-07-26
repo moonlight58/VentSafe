@@ -194,7 +194,7 @@ class FirebaseService {
   // ==================== GESTION DES CARDS ====================
 
   // CORRECTION: Écouter toutes les cartes visibles (pas seulement celles d'un utilisateur)
-  listenToAllVisibleCards(callback) {
+  listenToAllVisibleCards(callback, currentUserId = null) {
     try {
       const unsubscribe = onValue(
         this.cardsRef,
@@ -218,10 +218,17 @@ class FirebaseService {
                   emoji: data[key].moodEmoji,
                 },
               }))
-              // CORRECTION: Filtrer seulement les cartes visibles
-              .filter((card) => card.isVisibleToOthers === true)
+              .filter((card) => {
+                // Inclure la carte si :
+                // 1. Elle est visible à tous (isVisibleToOthers = true)
+                // 2. OU si elle appartient à l'utilisateur actuel (même si pas encore visible aux autres)
+                return (
+                  card.isVisibleToOthers === true ||
+                  (currentUserId && card.user.id === currentUserId)
+                );
+              })
               .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
+
             callback(cards);
           } else {
             callback([]);
@@ -421,7 +428,9 @@ class FirebaseService {
                 emoji: data[key].moodEmoji,
               },
               timestamp: new Date(data[key].timestamp),
-              editedAt: data[key].editedAt ? new Date(data[key].editedAt) : null,
+              editedAt: data[key].editedAt
+                ? new Date(data[key].editedAt)
+                : null,
               processingUntil: data[key].processingUntil
                 ? new Date(data[key].processingUntil)
                 : null,

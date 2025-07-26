@@ -315,6 +315,7 @@
                   editingCard?.firebaseId === card.firebaseId ||
                   editingCard?.id === card.id,
                 'processing-time': isCardInProcessingTime(card),
+                'own-card-pending': isOwnCardPending(card),
               }"
             >
               <!-- Processing Time Status -->
@@ -429,7 +430,20 @@
                   </div>
                   <span class="card-mood">{{ card.mood.emoji }}</span>
 
-                  <!-- Card Actions -->
+                  <!-- AJOUT: Indicateur de visibilité pour les cartes de l'utilisateur actuel -->
+                  <div
+                    v-if="isCurrentUserCard(card) && !card.isVisibleToOthers"
+                    class="visibility-status"
+                  >
+                    <span
+                      class="private-indicator"
+                      title="Visible seulement par vous"
+                    >
+                      👁️ Privée
+                    </span>
+                  </div>
+
+                  <!-- Card Actions (existant) -->
                   <div
                     v-if="
                       !isCardProcessing(card) && card.user.id === currentUser.id
@@ -641,11 +655,25 @@ export default {
       return card.firebaseId || `local-${card.id}`;
     };
 
+    // Check if card belongs to current user but is not visible to others
+    const isOwnCardPending = (card) => {
+      return (
+        card.user.id === currentUser.value.id &&
+        !card.isVisibleToOthers &&
+        !isCardInProcessingTime(card)
+      );
+    };
+
+    // Check if card belongs to current user
+    const isCurrentUserCard = (card) => {
+      return card.user.id === currentUser.value.id;
+    };
+
     // Check if card is in processing phase (creation)
     const isCardProcessing = (card) => {
       return card.isProcessing === true;
     };
-
+    
     // Check if card is in processing time (waiting period)
     const isCardInProcessingTime = (card) => {
       if (!card.processingUntil) return false;
@@ -1100,9 +1128,10 @@ export default {
       if (!currentUser.value) return;
 
       try {
+        // MODIFICATION: Passer l'ID de l'utilisateur actuel comme second paramètre
         unsubscribeFirebase.value = firebaseService.listenToAllVisibleCards(
           (updatedCards) => {
-            // AJOUT: Reset editing state when cards are updated from Firebase
+            // Reset editing state when cards are updated from Firebase
             resetEditingState();
 
             // Garder seulement les cartes locales non synchronisées de l'utilisateur actuel
@@ -1141,7 +1170,8 @@ export default {
             if (syncStatus.value !== "offline") {
               syncStatus.value = "synced";
             }
-          }
+          },
+          currentUser.value.id // AJOUT: Passer l'ID de l'utilisateur actuel
         );
       } catch (error) {
         console.error("Error setting up Firebase listener:", error);
@@ -1273,6 +1303,8 @@ export default {
       retrySync,
       handleImageError,
       resetEditingState,
+      isOwnCardPending,
+      isCurrentUserCard,
     };
   },
 };
@@ -1657,11 +1689,43 @@ export default {
   background: rgba(99, 102, 241, 0.05);
 }
 
+.timeline-card.own-card-pending {
+  border-left: 3px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.timeline-card.own-card-pending::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fbbf24, transparent);
+}
+
+.timeline-card.own-card-pending {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%,
+  100% {
+    border-left-color: #fbbf24;
+    box-shadow: 0 0 0 rgba(251, 191, 36, 0);
+  }
+  50% {
+    border-left-color: #f59e0b;
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.1);
+  }
+}
+
 .card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 12px;
+  margin-bottom: 12px;
+  position: relative;
 }
 
 .card-avatar {
@@ -1673,8 +1737,6 @@ export default {
 
 .card-meta {
   flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .card-user {
@@ -1686,7 +1748,19 @@ export default {
 .card-time-container {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.timeline-card.processing-time .private-indicator {
+  background: rgba(147, 51, 234, 0.1);
+  border-color: rgba(147, 51, 234, 0.3);
+  color: #9333ea;
+}
+
+.timeline-card.processing-time {
+  border-left-color: #9333ea;
+  background: rgba(147, 51, 234, 0.05);
 }
 
 .card-time {
@@ -1698,6 +1772,25 @@ export default {
   color: rgba(255, 255, 255, 0.4);
   font-size: 0.7rem;
   font-style: italic;
+}
+
+.visibility-status {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.private-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: #fbbf24;
+  font-weight: 500;
 }
 
 .card-mood {
@@ -2011,6 +2104,22 @@ export default {
 
   .mood-options {
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  }
+
+  .card-actions {
+    opacity: 1;
+  }
+
+  .edit-btn {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #6366f1;
+  }
+
+  .delete-btn {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
   }
 }
 </style>
