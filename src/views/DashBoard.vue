@@ -351,8 +351,10 @@
               <div
                 v-if="
                   !isCardProcessing(card) &&
+                  editingCard &&
                   (editingCard?.firebaseId === card.firebaseId ||
-                    editingCard?.id === card.id)
+                    editingCard?.id === card.id) &&
+                  card.user.id === currentUser.id
                 "
                 class="edit-mode"
               >
@@ -400,7 +402,7 @@
               </div>
 
               <!-- View Mode -->
-              <div v-else>
+              <div v-else-if="!isCardProcessing(card)">
                 <div class="card-header">
                   <img
                     :src="card.user.avatar"
@@ -610,11 +612,6 @@ export default {
       },
     ]);
 
-    // Set default processing time
-    onMounted(() => {
-      selectedProcessingTime.value = processingTimeOptions.value[4]; // 15 minutes default
-    });
-
     // Computed properties
     const canCreateCard = computed(() => {
       return (
@@ -624,6 +621,12 @@ export default {
         selectedProcessingTime.value !== null
       );
     });
+
+    const resetEditingState = () => {
+      editingCard.value = null;
+      editText.value = "";
+      editMood.value = null;
+    };
 
     // Helper function for card keys
     const getCardKey = (card) => {
@@ -1089,9 +1092,11 @@ export default {
       if (!currentUser.value) return;
 
       try {
-        // CORRECTION: Utiliser la bonne méthode
         unsubscribeFirebase.value = firebaseService.listenToAllVisibleCards(
           (updatedCards) => {
+            // AJOUT: Reset editing state when cards are updated from Firebase
+            resetEditingState();
+
             // Garder seulement les cartes locales non synchronisées de l'utilisateur actuel
             const localCards = cards.value.filter(
               (card) =>
@@ -1144,6 +1149,9 @@ export default {
 
     // Lifecycle hooks
     onMounted(() => {
+      // Set default processing time first
+      selectedProcessingTime.value = processingTimeOptions.value[4]; // 1 hour default
+
       // Load user
       const user = loadCurrentUser();
       if (!user) {
@@ -1151,6 +1159,9 @@ export default {
         return;
       }
       currentUser.value = user;
+
+      // Reset editing state before loading cards
+      resetEditingState();
 
       // Load cards
       cards.value = loadCards();
@@ -1253,6 +1264,7 @@ export default {
       deleteCard,
       retrySync,
       handleImageError,
+      resetEditingState,
     };
   },
 };
