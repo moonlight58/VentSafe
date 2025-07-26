@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import SelectAvatar from '../views/SelectAvatar.vue';
 import DashBoard from '../views/DashBoard.vue';
 import ProfileView from '../views/ProfileView.vue';
+import VentCardGrid from '../views/VentCardGrid.vue';
 
 // Define routes
 const routes = [
@@ -11,6 +12,11 @@ const routes = [
     path: '/',
     name: 'SelectAvatar',
     component: SelectAvatar,
+  },
+  {
+    path: '/home',
+    name: 'Home',
+    component: VentCardGrid
   },
   {
     path: '/vent',
