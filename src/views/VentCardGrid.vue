@@ -1461,6 +1461,7 @@ export default {
 
   .main-container {
     padding: 1rem;
+    margin-top: 4rem;
   }
 
   .grid-items {
