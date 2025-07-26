@@ -673,11 +673,15 @@ export default {
     const isCardProcessing = (card) => {
       return card.isProcessing === true;
     };
-    
+
     // Check if card is in processing time (waiting period)
     const isCardInProcessingTime = (card) => {
       if (!card.processingUntil) return false;
-      return new Date() < new Date(card.processingUntil);
+      const now = new Date();
+      const processingUntil = new Date(card.processingUntil);
+
+      // Aussi vérifier que isVisibleToOthers est false
+      return now < processingUntil && card.isVisibleToOthers === false;
     };
 
     // Get remaining processing time
@@ -757,11 +761,15 @@ export default {
       }
 
       const interval = setInterval(async () => {
-        if (!isCardInProcessingTime(card)) {
+        const now = new Date();
+        const processingUntil = new Date(card.processingUntil);
+
+        // CORRECTION: Vérifier si le temps est écoulé
+        if (now >= processingUntil) {
           clearInterval(interval);
           processingTimeIntervals.value.delete(intervalKey);
 
-          // AJOUT: Quand le temps est écoulé, rendre la carte visible automatiquement
+          // Trouver la carte dans le tableau
           const cardIndex = cards.value.findIndex(
             (c) =>
               (card.firebaseId && c.firebaseId === card.firebaseId) ||
@@ -769,7 +777,13 @@ export default {
           );
 
           if (cardIndex !== -1) {
-            cards.value[cardIndex].isVisibleToOthers = true;
+            // CORRECTION: Mettre à jour isVisibleToOthers ET processingUntil
+            cards.value[cardIndex] = {
+              ...cards.value[cardIndex],
+              isVisibleToOthers: true,
+              processingUntil: null, // Supprimer le temps de processing
+            };
+
             saveCardsLocally(cards.value);
 
             // Update Firebase
@@ -777,19 +791,73 @@ export default {
               try {
                 await firebaseService.updateCard(card.firebaseId, {
                   isVisibleToOthers: true,
+                  processingUntil: null,
                 });
+                console.log(
+                  `Card ${card.firebaseId} automatically made visible`
+                );
               } catch (error) {
                 console.error("Error auto-updating card visibility:", error);
               }
             }
-          }
 
-          // Force reactivity update
-          cards.value = [...cards.value];
+            // Force reactivity update
+            cards.value = [...cards.value];
+          }
         }
-      }, 60000); // Check every minute
+      }, 30000); // Vérifier toutes les 30 secondes au lieu de 60
 
       processingTimeIntervals.value.set(intervalKey, interval);
+    };
+
+    const checkExpiredProcessingCards = async () => {
+      const now = new Date();
+      let hasChanges = false;
+
+      for (let i = 0; i < cards.value.length; i++) {
+        const card = cards.value[i];
+
+        // Si la carte a un processingUntil et que le temps est écoulé
+        if (
+          card.processingUntil &&
+          now >= new Date(card.processingUntil) &&
+          !card.isVisibleToOthers
+        ) {
+          console.log(
+            `Found expired processing card: ${card.firebaseId || card.id}`
+          );
+
+          // Mettre à jour localement
+          cards.value[i] = {
+            ...cards.value[i],
+            isVisibleToOthers: true,
+            processingUntil: null,
+          };
+
+          hasChanges = true;
+
+          // Mettre à jour Firebase si applicable
+          if (card.firebaseId) {
+            try {
+              await firebaseService.updateCard(card.firebaseId, {
+                isVisibleToOthers: true,
+                processingUntil: null,
+              });
+              console.log(
+                `Updated expired card ${card.firebaseId} on Firebase`
+              );
+            } catch (error) {
+              console.error("Error updating expired card:", error);
+            }
+          }
+        }
+      }
+
+      if (hasChanges) {
+        saveCardsLocally(cards.value);
+        // Force reactivity update
+        cards.value = [...cards.value];
+      }
     };
 
     // Storage functions
@@ -1204,6 +1272,9 @@ export default {
       // Load cards
       cards.value = loadCards();
 
+      // Vérifier les cartes expirées au démarrage
+      checkExpiredProcessingCards();
+
       // Setup processing time countdowns for existing cards
       cards.value.forEach((card) => {
         if (card.processingUntil && isCardInProcessingTime(card)) {
@@ -1305,6 +1376,7 @@ export default {
       resetEditingState,
       isOwnCardPending,
       isCurrentUserCard,
+      checkExpiredProcessingCards,
     };
   },
 };
