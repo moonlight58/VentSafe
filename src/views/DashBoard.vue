@@ -160,14 +160,17 @@
         </div>
         <button @click="changeUser" class="change-user-btn" title="Change user">
           <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
+            class="menu-icon"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
+            viewBox="0 0 24 24"
           >
-            <path d="M20 6L9 17l-5-5" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+            />
           </svg>
         </button>
       </div>
@@ -427,7 +430,7 @@
                   <span class="card-mood">{{ card.mood.emoji }}</span>
 
                   <!-- Card Actions -->
-                  <div v-if="!isCardProcessing(card)" class="card-actions">
+                  <div v-if="!isCardProcessing(card) && card.user.id === currentUser.id" class="card-actions">
                     <button
                       @click="startEditing(card)"
                       class="action-btn edit-btn"
@@ -1955,6 +1958,13 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.menu-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
 }
 
 @keyframes pulse {
