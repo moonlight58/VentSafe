@@ -207,15 +207,31 @@
 
             <div class="setting-item">
               <div class="setting-info">
-                <div class="setting-name">Notifications</div>
-                <div class="setting-description">Gérer les alertes</div>
+                <div class="setting-name">Notifications Discord</div>
+                <div class="setting-description">
+                  {{
+                    notificationsEnabled && discordUsername
+                      ? `Configuré pour @${discordUsername}`
+                      : "Recevoir des notifications sur Discord"
+                  }}
+                </div>
               </div>
-              <div
-                class="toggle-switch"
-                :class="{ active: notificationsEnabled }"
-                @click="toggleNotifications"
-              >
-                <div class="toggle-handle"></div>
+              <div class="setting-actions">
+                <button
+                  v-if="notificationsEnabled"
+                  class="setting-action config-btn"
+                  @click="openDiscordModal"
+                  title="Configurer Discord"
+                >
+                  ⚙️
+                </button>
+                <div
+                  class="toggle-switch"
+                  :class="{ active: notificationsEnabled }"
+                  @click="toggleNotifications"
+                >
+                  <div class="toggle-handle"></div>
+                </div>
               </div>
             </div>
 
@@ -385,6 +401,82 @@
       </div>
     </div>
 
+    <!-- Modal de configuration Discord -->
+    <div
+      v-if="showDiscordModal"
+      class="modal-overlay"
+      @click="closeDiscordModal"
+    >
+      <div class="modal-content discord-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Configuration Discord</h3>
+          <button class="close-btn" @click="closeDiscordModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="discord-settings">
+            <div class="discord-username">
+              <label class="discord-label">
+                Nom d'utilisateur Discord
+                <span class="required">*</span>
+              </label>
+              <input
+                v-model="discordUsername"
+                type="text"
+                placeholder="votre_nom_discord"
+                class="modal-input discord-input"
+                @input="saveDiscordSettings"
+              />
+              <p class="discord-hint">
+                💡 Utilisez votre nom d'utilisateur Discord exact pour recevoir
+                les notifications
+              </p>
+            </div>
+
+            <div v-if="discordUsername.trim()" class="users-notifications">
+              <h4 class="notifications-title">
+                Recevoir des notifications pour :
+              </h4>
+              <div v-if="allUsers.length === 0" class="no-users">
+                <div class="no-users-icon">👥</div>
+                <p>Aucun autre utilisateur disponible</p>
+              </div>
+              <div v-else class="users-list">
+                <div
+                  v-for="user in allUsers"
+                  :key="user.id"
+                  class="user-notification-item"
+                >
+                  <div class="user-info">
+                    <img
+                      :src="user.avatar"
+                      :alt="user.name"
+                      class="user-mini-avatar"
+                    />
+                    <div class="user-details">
+                      <div class="user-name">{{ user.name }}</div>
+                      <div class="user-description">{{ user.description }}</div>
+                    </div>
+                  </div>
+                  <div
+                    class="notification-toggle"
+                    :class="{ active: discordNotifications[user.id] }"
+                    @click="toggleUserNotification(user.id)"
+                  >
+                    <div class="toggle-handle"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeDiscordModal">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast notifications -->
     <div v-if="showToast" class="toast" :class="toastType">
       <span class="toast-icon">{{ toastIcon }}</span>
@@ -421,6 +513,12 @@ const showToast = ref(false);
 const toastMessage = ref("");
 const toastType = ref("success");
 const toastIcon = ref("✅");
+
+// Discord settings
+const showDiscordModal = ref(false);
+const discordUsername = ref("");
+const discordNotifications = ref({});
+const allUsers = ref([]);
 
 // Predefined colors
 const predefinedColors = ref([
@@ -599,11 +697,69 @@ const changeAvatar = () => {
   showAvatarModal.value = true;
 };
 
+const loadAllUsers = async () => {
+  try {
+    const users = await firebaseService.getAllUsers();
+    allUsers.value = users.filter((user) => user.id !== currentUser.value?.id);
+  } catch (error) {
+    console.error("Erreur chargement utilisateurs:", error);
+  }
+};
+
+const saveDiscordSettings = async () => {
+  if (currentUser.value && currentUser.value.firebaseId) {
+    try {
+      const discordSettings = {
+        username: discordUsername.value,
+        notifications: discordNotifications.value,
+      };
+
+      await firebaseService.updateUserDiscordSettings(
+        currentUser.value.firebaseId,
+        discordSettings
+      );
+
+      localStorage.setItem("discordSettings", JSON.stringify(discordSettings));
+      showToastMessage("Paramètres Discord sauvegardés !", "success", "✅");
+    } catch (error) {
+      console.error("Erreur sauvegarde Discord:", error);
+      showToastMessage("Erreur de sauvegarde Discord", "error", "❌");
+    }
+  }
+};
+
+const loadDiscordSettings = () => {
+  const saved = localStorage.getItem("discordSettings");
+  if (saved) {
+    const settings = JSON.parse(saved);
+    discordUsername.value = settings.username || "";
+    discordNotifications.value = settings.notifications || {};
+  }
+};
+
 const changeUserAvatar = async (avatar) => {
   currentUser.value.avatar = avatar;
   await saveUserToFirebase();
   closeModals();
   showToastMessage("Avatar changé !", "success", "📷");
+};
+
+const openDiscordModal = async () => {
+  await loadAllUsers();
+  showDiscordModal.value = true;
+};
+
+const closeDiscordModal = () => {
+  showDiscordModal.value = false;
+};
+
+const toggleUserNotification = (userId) => {
+  if (discordNotifications.value[userId]) {
+    delete discordNotifications.value[userId];
+  } else {
+    discordNotifications.value[userId] = true;
+  }
+  saveDiscordSettings();
 };
 
 // Toggle functions
@@ -613,6 +769,12 @@ const toggleNotifications = () => {
     "notificationsEnabled",
     JSON.stringify(notificationsEnabled.value)
   );
+
+  // Si on active les notifications, ouvrir la modal Discord
+  if (notificationsEnabled.value) {
+    openDiscordModal();
+  }
+
   showToastMessage(
     notificationsEnabled.value
       ? "Notifications activées"
@@ -788,6 +950,8 @@ onMounted(() => {
   if (savedPrivateProfile) {
     privateProfile.value = JSON.parse(savedPrivateProfile);
   }
+
+  loadDiscordSettings();
 
   // Generate dynamic CSS for floating animations
   const style = document.createElement("style");
@@ -1533,6 +1697,212 @@ onMounted(() => {
 .no-activity-text {
   color: rgba(255, 255, 255, 0.4);
   font-size: 1rem;
+}
+
+.discord-modal {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.discord-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.discord-username {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.discord-label {
+  color: white;
+  font-weight: 500;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.discord-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: white;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+}
+
+.discord-input:focus {
+  outline: none;
+  border-color: #5865f2;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.discord-hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.users-notifications {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notifications-title {
+  color: white;
+  font-weight: 500;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.no-users {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.no-users-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.users-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.users-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.users-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.user-notification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.user-notification-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.user-mini-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.user-name {
+  color: white;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.user-description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.notification-toggle {
+  position: relative;
+  width: 3rem;
+  height: 1.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.notification-toggle.active {
+  background: #5865f2;
+}
+
+.notification-toggle .toggle-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.notification-toggle.active .toggle-handle {
+  transform: translateX(1.5rem);
+}
+
+.setting-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.config-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.config-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.05);
 }
 
 @keyframes pulse {

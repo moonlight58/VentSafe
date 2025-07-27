@@ -961,6 +961,11 @@ export default {
         // MODIFICATION: Sauvegarder directement sur Firebase SANS ajouter localement d'abord
         const firebaseId = await firebaseService.saveCard(newCard);
 
+        // CORRECTION: Envoyer les notifications seulement si la carte est immédiatement visible
+        if (selectedProcessingTime.value.value === 0) {
+          await sendDiscordNotifications(newCard);
+        }
+
         // MODIFICATION: La carte sera ajoutée automatiquement via le listener Firebase
         // donc on n'ajoute rien manuellement à cards.value
 
@@ -993,8 +998,41 @@ export default {
       // Clean up form
       selectedMood.value = null;
       cardText.value = "";
-      selectedProcessingTime.value = processingTimeOptions.value[2]; // Reset to default
+      selectedProcessingTime.value = processingTimeOptions.value[4]; // Reset to default
       isCreating.value = false;
+    };
+
+    const sendDiscordNotifications = async () => {
+      if (!currentUser.value) return;
+
+      try {
+        // Récupérer les utilisateurs qui veulent être notifiés
+        const usersToNotify =
+          await firebaseService.getUsersWantingNotificationsFor(
+            currentUser.value.id
+          );
+
+        if (usersToNotify.length > 0) {
+          // Ici vous pouvez envoyer les notifications Discord
+          // Soit via une API backend, soit via un webhook Discord
+          console.log("Utilisateurs à notifier:", usersToNotify);
+
+          // Exemple d'appel à votre API backend :
+          /*
+      await fetch('/api/send-discord-notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          users: usersToNotify,
+          author: currentUser.value,
+          card: newCard
+        })
+      });
+      */
+        }
+      } catch (error) {
+        console.error("Erreur envoi notifications Discord:", error);
+      }
     };
 
     const changeUser = () => {
@@ -1377,6 +1415,7 @@ export default {
       isOwnCardPending,
       isCurrentUserCard,
       checkExpiredProcessingCards,
+      sendDiscordNotifications,
     };
   },
 };

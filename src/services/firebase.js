@@ -53,6 +53,76 @@ class FirebaseService {
     }
   }
 
+  async getAllUsers() {
+    try {
+      const snapshot = await get(this.usersRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        return Object.keys(data).map((firebaseId) => ({
+          firebaseId: firebaseId,
+          ...data[firebaseId],
+          createdAt: data[firebaseId].createdAt
+            ? new Date(data[firebaseId].createdAt)
+            : new Date(),
+          lastActive: data[firebaseId].lastActive
+            ? new Date(data[firebaseId].lastActive)
+            : new Date(),
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Erreur lors du chargement des utilisateurs:", error);
+      throw error;
+    }
+  }
+
+  async updateUserDiscordSettings(userId, discordSettings) {
+    try {
+      const userRef = ref(this.db, `users/${userId}`);
+      await update(userRef, {
+        discordSettings: discordSettings,
+        updatedAt: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Erreur mise à jour paramètres Discord:", error);
+      throw error;
+    }
+  }
+
+  async getUsersWantingNotificationsFor(userId) {
+    try {
+      const snapshot = await get(this.usersRef);
+      if (!snapshot.exists()) {
+        return [];
+      }
+
+      const data = snapshot.val();
+      const usersWantingNotifications = [];
+
+      Object.keys(data).forEach((firebaseId) => {
+        const userData = data[firebaseId];
+        if (
+          userData.discordSettings &&
+          userData.discordSettings.notifications &&
+          userData.discordSettings.notifications[userId] &&
+          userData.discordSettings.username
+        ) {
+          usersWantingNotifications.push({
+            firebaseId: firebaseId,
+            discordUsername: userData.discordSettings.username,
+            ...userData,
+          });
+        }
+      });
+
+      return usersWantingNotifications;
+    } catch (error) {
+      console.error("Erreur récupération notifications:", error);
+      throw error;
+    }
+  }
+
   // Écouter les changements d'utilisateurs en temps réel
   listenToUsers(callback) {
     const unsubscribe = onValue(
