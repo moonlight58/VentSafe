@@ -210,8 +210,14 @@
                 <div class="setting-name">Notifications Discord</div>
                 <div class="setting-description">
                   {{
-                    notificationsEnabled && discordUsername
-                      ? `Configuré pour @${discordUsername}`
+                    notificationsEnabled &&
+                    discordUsername.value &&
+                    discordWebhookUrl.value
+                      ? `Configuré pour @${discordUsername.value}`
+                      : notificationsEnabled &&
+                        discordUsername.value &&
+                        !discordWebhookUrl.value
+                      ? "Webhook manquant - Configuration incomplète"
                       : "Recevoir des notifications sur Discord"
                   }}
                 </div>
@@ -414,27 +420,78 @@
         </div>
         <div class="modal-body">
           <div class="discord-settings">
+            <!-- Section Username Discord -->
             <div class="discord-username">
               <label class="discord-label">
                 Nom d'utilisateur Discord
-                <span class="required">*</span>
+                <span class="optional">(optionnel)</span>
               </label>
               <input
                 v-model="discordUsername"
                 type="text"
-                placeholder="votre_nom_discord"
+                placeholder="votre_nom_discord#1234"
                 class="modal-input discord-input"
                 @input="saveDiscordSettings"
               />
               <p class="discord-hint">
-                💡 Utilisez votre nom d'utilisateur Discord exact pour recevoir
-                les notifications
+                💡 Pour identifier qui reçoit les notifications
               </p>
             </div>
 
-            <div v-if="discordUsername.trim()" class="users-notifications">
+            <!-- Section Webhook URL -->
+            <div class="discord-webhook">
+              <label class="discord-label">
+                URL du Webhook Discord
+                <span class="required">*</span>
+              </label>
+              <textarea
+                v-model="discordWebhookUrl"
+                placeholder="https://discord.com/api/webhooks/123456789/abcdefghijklmnop..."
+                class="modal-textarea webhook-input"
+                rows="3"
+                @input="saveDiscordSettings"
+              ></textarea>
+
+              <div class="webhook-actions">
+                <a
+                  href="https://support.discord.com/hc/fr/articles/228383668-Intro-aux-Webhooks"
+                  target="_blank"
+                  class="webhook-help"
+                >
+                  📚 Comment créer un webhook ?
+                </a>
+                <button
+                  @click="handleTestWebhook"
+                  :disabled="isTestingWebhook || !discordWebhookUrl.trim()"
+                  class="test-webhook-btn"
+                  :class="{ testing: isTestingWebhook }"
+                >
+                  <span v-if="isTestingWebhook">🔄 Test...</span>
+                  <span v-else>🧪 Tester</span>
+                </button>
+              </div>
+
+              <!-- Résultat du test -->
+              <div v-if="webhookTestResult" class="webhook-test-result">
+                <div v-if="webhookTestResult.success" class="test-success">
+                  <span class="result-icon">✅</span>
+                  <span class="result-message">{{
+                    webhookTestResult.message
+                  }}</span>
+                </div>
+                <div v-else class="test-error">
+                  <span class="result-icon">❌</span>
+                  <span class="result-message">{{
+                    webhookTestResult.message
+                  }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section Notifications par utilisateur -->
+            <div v-if="discordWebhookUrl.trim()" class="users-notifications">
               <h4 class="notifications-title">
-                Recevoir des notifications pour :
+                📬 Recevoir des notifications pour :
               </h4>
               <div v-if="allUsers.length === 0" class="no-users">
                 <div class="no-users-icon">👥</div>
@@ -451,6 +508,7 @@
                       :src="user.avatar"
                       :alt="user.name"
                       class="user-mini-avatar"
+                      :style="{ backgroundColor: user.color + '33' }"
                     />
                     <div class="user-details">
                       <div class="user-name">{{ user.name }}</div>
@@ -466,6 +524,24 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- Guide d'utilisation -->
+            <div class="discord-guide">
+              <h4 class="guide-title">📋 Guide de configuration :</h4>
+              <ol class="guide-steps">
+                <li>
+                  🔧 Va dans les paramètres de ton serveur/channel Discord
+                </li>
+                <li>⚙️ Clique sur "Intégrations" puis "Webhooks"</li>
+                <li>➕ Crée un nouveau webhook et choisis le channel</li>
+                <li>📋 Copie l'URL du webhook et colle-la ci-dessus</li>
+                <li>🧪 Teste le webhook pour vérifier qu'il fonctionne</li>
+                <li>
+                  ✅ Active les notifications pour les personnes qui
+                  t'intéressent
+                </li>
+              </ol>
             </div>
           </div>
         </div>
@@ -519,6 +595,9 @@ const showDiscordModal = ref(false);
 const discordUsername = ref("");
 const discordNotifications = ref({});
 const allUsers = ref([]);
+const discordWebhookUrl = ref("");
+const webhookTestResult = ref(null);
+const isTestingWebhook = ref(false);
 
 // Predefined colors
 const predefinedColors = ref([
@@ -711,6 +790,7 @@ const saveDiscordSettings = async () => {
     try {
       const discordSettings = {
         username: discordUsername.value,
+        webhookUrl: discordWebhookUrl.value,
         notifications: discordNotifications.value,
       };
 
@@ -728,12 +808,55 @@ const saveDiscordSettings = async () => {
   }
 };
 
-const loadDiscordSettings = () => {
-  const saved = localStorage.getItem("discordSettings");
-  if (saved) {
-    const settings = JSON.parse(saved);
-    discordUsername.value = settings.username || "";
-    discordNotifications.value = settings.notifications || {};
+const loadDiscordSettings = async () => {
+  if (!currentUser.value?.firebaseId) return;
+
+  try {
+    const userData = await firebaseService.getUser(
+      currentUser.value.firebaseId
+    );
+    if (userData?.discordSettings) {
+      discordUsername.value = userData.discordSettings.username || "";
+      discordWebhookUrl.value = userData.discordSettings.webhookUrl || "";
+      discordNotifications.value = userData.discordSettings.notifications || {};
+    }
+  } catch (error) {
+    console.error("Erreur chargement paramètres Discord:", error);
+  }
+};
+
+const handleTestWebhook = async () => {
+  if (!discordWebhookUrl.value.trim()) {
+    webhookTestResult.value = {
+      success: false,
+      message: "Veuillez d'abord entrer une URL de webhook.",
+    };
+    return;
+  }
+
+  isTestingWebhook.value = true;
+  webhookTestResult.value = null;
+
+  try {
+    // Utiliser le service Firebase pour le test (validation incluse)
+    const result = await firebaseService.testDiscordWebhook(
+      discordWebhookUrl.value.trim()
+    );
+    webhookTestResult.value = result;
+
+    if (result.success) {
+      showToastMessage("Test webhook réussi !", "success", "✅");
+    } else {
+      showToastMessage("Erreur test webhook", "error", "❌");
+    }
+  } catch (error) {
+    webhookTestResult.value = {
+      success: false,
+      message: "Erreur lors du test.",
+    };
+    showToastMessage("Erreur test webhook", "error", "❌");
+  } finally {
+    isTestingWebhook.value = false;
   }
 };
 
@@ -1903,6 +2026,267 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.2);
   color: white;
   transform: scale(1.05);
+}
+
+.discord-webhook {
+  margin: 20px 0;
+}
+
+.webhook-input {
+  min-height: 60px;
+  resize: vertical;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+}
+
+.webhook-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.webhook-help {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.webhook-help:hover {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: rgb(99, 102, 241);
+  transition: all 0.2s ease-in-out;
+}
+
+.test-webhook-btn {
+  background: rgba(123, 255, 167, 0.2);
+  border: 1px solid rgba(123, 255, 167, 0.4);
+  color: rgb(123, 255, 167);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.test-webhook-btn:hover:not(:disabled) {
+  background: rgba(123, 255, 167, 0.2);
+  border: 1px solid rgba(123, 255, 167);
+  color: rgb(123, 255, 167);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.test-webhook-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.test-webhook-btn.testing {
+  background: #ddd6fe;
+  border-color: #8b5cf6;
+  color: #7c3aed;
+}
+
+.webhook-test-result {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.test-success {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.test-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.result-icon {
+  flex-shrink: 0;
+}
+
+.result-message {
+  line-height: 1.4;
+}
+
+.discord-guide {
+  margin-top: 24px;
+  padding: 16px;
+  background-color: rgba(57, 57, 109, 0.253);
+  border-radius: 8px;
+  border-left: 4px solid rgb(99, 102, 241);
+}
+
+.guide-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.guide-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: #bbbbbb;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.guide-steps li {
+  margin-bottom: 4px;
+}
+
+.optional {
+  color: #9ca3af;
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.required {
+  color: #dc2626;
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.notifications-title {
+  margin: 20px 0 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.user-mini-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+/* Specific styling for modal content */
+.modal-content::-webkit-scrollbar-thumb {
+  background: rgba(
+    99,
+    102,
+    241,
+    0.4
+  ); /* Purple theme to match your accent color */
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* Specific styling for Discord modal */
+.discord-modal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2); /* Dark track to match your background */
+  border-radius: 4px;
+  margin: 2px; /* Small margin for better appearance */
+}
+
+.discord-modal::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3); /* Semi-transparent white */
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border */
+  transition: all 0.3s ease;
+}
+
+.discord-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5); /* Brighter on hover */
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.discord-modal::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.6); /* Even brighter when dragging */
+}
+
+.discord-modal::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.2); /* Corner where scrollbars meet */
+}
+
+/* Users list specific scrollbar (you already have this, but here's an improved version) */
+.users-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.users-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+.users-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.users-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Alternative: Thinner, more subtle scrollbar */
+.subtle-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* For textarea and input scrollbars */
+textarea::-webkit-scrollbar,
+.discord-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track,
+.discord-input::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb,
+.discord-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover,
+.discord-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 
 @keyframes pulse {

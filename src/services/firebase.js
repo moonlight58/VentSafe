@@ -80,7 +80,11 @@ class FirebaseService {
     try {
       const userRef = ref(this.db, `users/${userId}`);
       await update(userRef, {
-        discordSettings: discordSettings,
+        discordSettings: {
+          username: discordSettings.username || "",
+          webhookUrl: discordSettings.webhookUrl || "", // IMPORTANT
+          notifications: discordSettings.notifications || {},
+        },
         updatedAt: new Date().toISOString(),
         lastActive: new Date().toISOString(),
       });
@@ -106,11 +110,16 @@ class FirebaseService {
           userData.discordSettings &&
           userData.discordSettings.notifications &&
           userData.discordSettings.notifications[userId] &&
-          userData.discordSettings.username
+          userData.discordSettings.webhookUrl &&
+          userData.discordSettings.webhookUrl.trim() !== ""
         ) {
           usersWantingNotifications.push({
+            id: userData.id,
             firebaseId: firebaseId,
-            discordUsername: userData.discordSettings.username,
+            name: userData.name,
+            avatar: userData.avatar,
+            color: userData.color,
+            discordSettings: userData.discordSettings,
             ...userData,
           });
         }
@@ -148,6 +157,75 @@ class FirebaseService {
       }
     );
     return unsubscribe;
+  }
+
+  validateDiscordWebhookUrl(url) {
+    if (!url || typeof url !== "string") {
+      return { valid: false, error: "URL manquante" };
+    }
+
+    // Pattern pour les webhooks Discord
+    const discordWebhookPattern =
+      /^https:\/\/discord\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+
+    if (!discordWebhookPattern.test(url.trim())) {
+      return {
+        valid: false,
+        error:
+          "Format d'URL de webhook Discord invalide. Elle doit ressembler à : https://discord.com/api/webhooks/123456789/abcdef...",
+      };
+    }
+
+    return { valid: true };
+  }
+
+  async testDiscordWebhook(webhookUrl) {
+    const validation = this.validateDiscordWebhookUrl(webhookUrl);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: "🧪 **Test de webhook réussi !**",
+          embeds: [
+            {
+              title: "Configuration Discord",
+              description:
+                "Votre webhook fonctionne correctement ! Vous recevrez maintenant les notifications de Vent Safe.",
+              color: 0x57f287, // Vert Discord
+              footer: {
+                text: "Vent Safe - Test de configuration",
+              },
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        }),
+      });
+
+      if (response.ok) {
+        return {
+          success: true,
+          message: "Test réussi ! Webhook configuré correctement.",
+        };
+      } else {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `Erreur ${response.status}: ${errorText}`,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `Erreur de connexion: ${error.message}`,
+      };
+    }
   }
 
   // Créer un nouvel utilisateur

@@ -430,7 +430,7 @@
                   </div>
                   <span class="card-mood">{{ card.mood.emoji }}</span>
 
-                  <!-- AJOUT: Indicateur de visibilité pour les cartes de l'utilisateur actuel -->
+                  <!-- Indicateur de visibilité pour les cartes de l'utilisateur actuel -->
                   <div
                     v-if="isCurrentUserCard(card) && !card.isVisibleToOthers"
                     class="visibility-status"
@@ -721,7 +721,7 @@ export default {
 
       // Remove processing time ET rendre visible aux autres
       cards.value[cardIndex].processingUntil = null;
-      cards.value[cardIndex].isVisibleToOthers = true; // AJOUT
+      cards.value[cardIndex].isVisibleToOthers = true;
 
       // Save locally
       saveCardsLocally(cards.value);
@@ -732,7 +732,7 @@ export default {
           syncStatus.value = "syncing";
           await firebaseService.updateCard(card.firebaseId, {
             processingUntil: null,
-            isVisibleToOthers: true, // AJOUT
+            isVisibleToOthers: true,
           });
           syncStatus.value = "synced";
         } catch (error) {
@@ -740,6 +740,8 @@ export default {
           syncStatus.value = "error";
         }
       }
+
+      await sendDiscordNotifications(card);
 
       // Clear any existing interval for this card
       const intervalKey = card.firebaseId || card.id;
@@ -777,7 +779,6 @@ export default {
           );
 
           if (cardIndex !== -1) {
-            // CORRECTION: Mettre à jour isVisibleToOthers ET processingUntil
             cards.value[cardIndex] = {
               ...cards.value[cardIndex],
               isVisibleToOthers: true,
@@ -799,6 +800,10 @@ export default {
               } catch (error) {
                 console.error("Error auto-updating card visibility:", error);
               }
+            }
+
+            if (cardIndex !== -1) {
+              await sendDiscordNotifications(cards.value[cardIndex]);
             }
 
             // Force reactivity update
@@ -953,21 +958,17 @@ export default {
         processingUntil: processingUntil,
         processingTimeMinutes: selectedProcessingTime.value.value,
         isProcessing: true,
-        // AJOUT: Marquer si la carte est visible pour les autres
+        // Marquer si la carte est visible pour les autres
         isVisibleToOthers: selectedProcessingTime.value.value === 0, // Immediate = visible
       };
 
       try {
-        // MODIFICATION: Sauvegarder directement sur Firebase SANS ajouter localement d'abord
         const firebaseId = await firebaseService.saveCard(newCard);
 
-        // CORRECTION: Envoyer les notifications seulement si la carte est immédiatement visible
+        // AJOUT : Envoyer les notifications Discord si visible immédiatement
         if (selectedProcessingTime.value.value === 0) {
           await sendDiscordNotifications(newCard);
         }
-
-        // MODIFICATION: La carte sera ajoutée automatiquement via le listener Firebase
-        // donc on n'ajoute rien manuellement à cards.value
 
         syncStatus.value = "synced";
         console.log("Card saved to Firebase:", firebaseId);
@@ -993,6 +994,11 @@ export default {
         if (processingUntil) {
           setupProcessingTimeCountdown(localCard);
         }
+
+        // Envoyer les notifications même en cas d'erreur Firebase (pour les cartes locales immédiates)
+        if (selectedProcessingTime.value.value === 0) {
+          await sendDiscordNotifications(localCard);
+        }
       }
 
       // Clean up form
@@ -1002,7 +1008,7 @@ export default {
       isCreating.value = false;
     };
 
-    const sendDiscordNotifications = async () => {
+    const sendDiscordNotifications = async (newCard) => {
       if (!currentUser.value) return;
 
       try {
@@ -1012,23 +1018,70 @@ export default {
             currentUser.value.id
           );
 
-        if (usersToNotify.length > 0) {
-          // Ici vous pouvez envoyer les notifications Discord
-          // Soit via une API backend, soit via un webhook Discord
-          console.log("Utilisateurs à notifier:", usersToNotify);
+        console.log("Utilisateurs à notifier:", usersToNotify);
 
-          // Exemple d'appel à votre API backend :
-          /*
-      await fetch('/api/send-discord-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          users: usersToNotify,
-          author: currentUser.value,
-          card: newCard
-        })
-      });
-      */
+        for (const user of usersToNotify) {
+          // Vérifier que l'utilisateur a configuré un webhook
+          if (user.discordSettings?.webhookUrl) {
+            try {
+              await fetch(user.discordSettings.webhookUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  content: `💭 **${currentUser.value.name}** a posté un nouveau vent !`,
+                  embeds: [
+                    {
+                      title: "Nouveau message",
+                      description:
+                        newCard.text.length > 100
+                          ? newCard.text.substring(0, 100) + "..."
+                          : newCard.text,
+                      color: parseInt(
+                        currentUser.value.color.replace("#", ""),
+                        16
+                      ),
+                      author: {
+                        name: currentUser.value.name,
+                        icon_url: currentUser.value.avatar || undefined,
+                      },
+                      fields: [
+                        {
+                          name: "Humeur",
+                          value: `${newCard.mood.emoji} ${newCard.mood.name}`,
+                          inline: true,
+                        },
+                        {
+                          name: "Heure",
+                          value: new Date().toLocaleTimeString("fr-FR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }),
+                          inline: true,
+                        },
+                      ],
+                      timestamp: new Date().toISOString(),
+                      footer: {
+                        text: "Vent Safe",
+                      },
+                    },
+                  ],
+                }),
+              });
+
+              console.log(
+                `Notification envoyée à ${
+                  user.name || user.discordSettings.username
+                }`
+              );
+            } catch (webhookError) {
+              console.error(
+                `Erreur envoi webhook pour ${user.name}:`,
+                webhookError
+              );
+            }
+          }
         }
       } catch (error) {
         console.error("Erreur envoi notifications Discord:", error);
@@ -1234,7 +1287,6 @@ export default {
       if (!currentUser.value) return;
 
       try {
-        // MODIFICATION: Passer l'ID de l'utilisateur actuel comme second paramètre
         unsubscribeFirebase.value = firebaseService.listenToAllVisibleCards(
           (updatedCards) => {
             // Reset editing state when cards are updated from Firebase
