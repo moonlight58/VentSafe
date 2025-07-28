@@ -82,8 +82,9 @@ class FirebaseService {
       await update(userRef, {
         discordSettings: {
           username: discordSettings.username || "",
-          webhookUrl: discordSettings.webhookUrl || "", // IMPORTANT
+          webhookUrl: discordSettings.webhookUrl || "",
           notifications: discordSettings.notifications || {},
+          pings: discordSettings.pings || {},
         },
         updatedAt: new Date().toISOString(),
         lastActive: new Date().toISOString(),

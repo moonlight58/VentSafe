@@ -232,7 +232,7 @@
                   ⚙️
                 </button>
                 <div
-                  class="toggle-switch"
+                  class="toggle-switch discord-toggle"
                   :class="{ active: notificationsEnabled }"
                   @click="toggleNotifications"
                 >
@@ -480,9 +480,10 @@
                   }}</span>
                 </div>
                 <div v-else class="test-error">
-                  <span class="result-icon">❌</span>
+                  <span class="result-icon">❌ </span>
                   <span class="result-message">{{
-                    webhookTestResult.message
+                    webhookTestResult.message ||
+                    "Erreur lors du test du webhook, veuillez vérifier l'URL."
                   }}</span>
                 </div>
               </div>
@@ -515,12 +516,23 @@
                       <div class="user-description">{{ user.description }}</div>
                     </div>
                   </div>
-                  <div
-                    class="notification-toggle"
-                    :class="{ active: discordNotifications[user.id] }"
-                    @click="toggleUserNotification(user.id)"
-                  >
-                    <div class="toggle-handle"></div>
+                  <div class="user-toggles">
+                    <button
+                      v-if="discordNotifications[user.id]"
+                      class="ping-toggle-btn"
+                      :class="{ active: discordPings[user.id] }"
+                      @click="toggleUserPing(user.id)"
+                      title="Activer les pings pour cet utilisateur (@)"
+                    >
+                      @
+                    </button>
+                    <div
+                      class="notification-toggle"
+                      :class="{ active: discordNotifications[user.id] }"
+                      @click="toggleUserNotification(user.id)"
+                    >
+                      <div class="toggle-handle"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -594,6 +606,7 @@ const toastIcon = ref("✅");
 const showDiscordModal = ref(false);
 const discordUsername = ref("");
 const discordNotifications = ref({});
+const discordPings = ref({});
 const allUsers = ref([]);
 const discordWebhookUrl = ref("");
 const webhookTestResult = ref(null);
@@ -792,6 +805,7 @@ const saveDiscordSettings = async () => {
         username: discordUsername.value,
         webhookUrl: discordWebhookUrl.value,
         notifications: discordNotifications.value,
+        pings: discordPings.value,
       };
 
       await firebaseService.updateUserDiscordSettings(
@@ -819,6 +833,7 @@ const loadDiscordSettings = async () => {
       discordUsername.value = userData.discordSettings.username || "";
       discordWebhookUrl.value = userData.discordSettings.webhookUrl || "";
       discordNotifications.value = userData.discordSettings.notifications || {};
+      discordPings.value = userData.discordSettings.pings || {};
     }
   } catch (error) {
     console.error("Erreur chargement paramètres Discord:", error);
@@ -881,6 +896,15 @@ const toggleUserNotification = (userId) => {
     delete discordNotifications.value[userId];
   } else {
     discordNotifications.value[userId] = true;
+  }
+  saveDiscordSettings();
+};
+
+const toggleUserPing = (userId) => {
+  if (discordPings.value[userId]) {
+    delete discordPings.value[userId];
+  } else {
+    discordPings.value[userId] = true;
   }
   saveDiscordSettings();
 };
@@ -1096,10 +1120,141 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Cascadia+Code:ital,wght@0,200..700;1,200..700&display=swap");
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.2);
+}
+
+/* Webkit scrollbars (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+*::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Scrollbar spécifique pour la modal Discord */
+.discord-modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) rgba(0, 0, 0, 0.2);
+}
+
+.discord-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.discord-modal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  margin: 4px;
+}
+
+.discord-modal::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 4px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  transition: all 0.3s ease;
+}
+
+.discord-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.discord-modal::-webkit-scrollbar-thumb:active {
+  background: rgba(99, 102, 241, 0.8);
+}
+
+/* Liste des utilisateurs */
+.users-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.users-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+.users-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.users-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Textarea et inputs */
+textarea::-webkit-scrollbar,
+.discord-input::-webkit-scrollbar,
+.webhook-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track,
+.discord-input::-webkit-scrollbar-track,
+.webhook-input::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb,
+.discord-input::-webkit-scrollbar-thumb,
+.webhook-input::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+textarea::-webkit-scrollbar-thumb:hover,
+.discord-input::-webkit-scrollbar-thumb:hover,
+.webhook-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Scrollbar pour la grille de couleurs */
+.color-grid::-webkit-scrollbar {
+  width: 4px;
+}
+
+.color-grid::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.color-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.color-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .app-container {
@@ -1554,7 +1709,11 @@ onMounted(() => {
 }
 
 .toggle-switch.active {
-  background: rgba(99, 102, 241, 0.6);
+  background: rgba(114, 137, 218, 0.6);
+}
+
+.toggle-switch.active .discord-toggle {
+  background: rgba(114, 137, 218, 0.6);
 }
 
 .toggle-handle {
@@ -1826,6 +1985,8 @@ onMounted(() => {
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
+  background: rgba(114, 137, 218, 0.1);
+  border: 1px solid rgba(114, 137, 218, 0.2);
 }
 
 .discord-settings {
@@ -1985,7 +2146,7 @@ onMounted(() => {
 }
 
 .notification-toggle.active {
-  background: #5865f2;
+  background: rgb(114, 137, 218);
 }
 
 .notification-toggle .toggle-handle {
@@ -2035,7 +2196,7 @@ onMounted(() => {
 .webhook-input {
   min-height: 60px;
   resize: vertical;
-  font-family: "Courier New", monospace;
+  font-family: "Cascadia Code", monospace;
   font-size: 12px;
 }
 
@@ -2060,16 +2221,16 @@ onMounted(() => {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  color: rgb(99, 102, 241);
+  background: rgb(114, 137, 218, 0.2);
+  border: 1px solid rgba(114, 137, 218, 0.4);
+  color: rgb(114, 137, 218);
   transition: all 0.2s ease-in-out;
 }
 
 .test-webhook-btn {
-  background: rgba(123, 255, 167, 0.2);
-  border: 1px solid rgba(123, 255, 167, 0.4);
-  color: rgb(123, 255, 167);
+  color: rgb(114, 137, 218);
+  background: rgba(114, 137, 218, 0.2);
+  border: 1px solid rgba(114, 137, 218, 0.4);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
@@ -2077,9 +2238,9 @@ onMounted(() => {
 }
 
 .test-webhook-btn:hover:not(:disabled) {
-  background: rgba(123, 255, 167, 0.2);
-  border: 1px solid rgba(123, 255, 167);
-  color: rgb(123, 255, 167);
+  color: rgb(78, 101, 184);
+  background: rgba(78, 101, 184, 0.2);
+  border: 1px solid rgba(78, 101, 184, 0.4);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
@@ -2092,9 +2253,9 @@ onMounted(() => {
 }
 
 .test-webhook-btn.testing {
-  background: #ddd6fe;
-  border-color: #8b5cf6;
-  color: #7c3aed;
+  color: rgb(114, 137, 218);
+  background: rgba(114, 137, 218, 0.2);
+  border: 1px solid rgba(114, 137, 218, 0.4);
 }
 
 .webhook-test-result {
@@ -2105,21 +2266,19 @@ onMounted(() => {
 }
 
 .test-success {
-  background: #ecfdf5;
-  border: 1px solid #bbf7d0;
-  color: #16a34a;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: rgba(87, 242, 135);
+  background: rgba(87, 242, 135, 0.2);
+  border: 1px solid rgba(87, 242, 135, 0.4);
 }
 
 .test-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: rgb(220, 38, 38);
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.4);
 }
 
 .result-icon {
@@ -2133,9 +2292,9 @@ onMounted(() => {
 .discord-guide {
   margin-top: 24px;
   padding: 16px;
-  background-color: rgba(57, 57, 109, 0.253);
+  background-color: rgba(114, 137, 218, 0.253);
   border-radius: 8px;
-  border-left: 4px solid rgb(99, 102, 241);
+  border-left: 4px solid rgb(114, 137, 218);
 }
 
 .guide-title {
@@ -2184,109 +2343,45 @@ onMounted(() => {
   border: 2px solid #e5e7eb;
 }
 
-/* Specific styling for modal content */
-.modal-content::-webkit-scrollbar-thumb {
-  background: rgba(
-    99,
-    102,
-    241,
-    0.4
-  ); /* Purple theme to match your accent color */
-  border: 1px solid rgba(99, 102, 241, 0.2);
+.user-toggles {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-shrink: 0;
 }
 
-.modal-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
-  border-color: rgba(99, 102, 241, 0.3);
-}
-
-/* Specific styling for Discord modal */
-.discord-modal::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2); /* Dark track to match your background */
-  border-radius: 4px;
-  margin: 2px; /* Small margin for better appearance */
-}
-
-.discord-modal::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3); /* Semi-transparent white */
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border */
+.ping-toggle-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0);
+  border: 1px solid rgba(255, 255, 255, 0);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1.3rem;
   transition: all 0.3s ease;
 }
 
-.discord-modal::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5); /* Brighter on hover */
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.discord-modal::-webkit-scrollbar-thumb:active {
-  background: rgba(255, 255, 255, 0.6); /* Even brighter when dragging */
-}
-
-.discord-modal::-webkit-scrollbar-corner {
-  background: rgba(0, 0, 0, 0.2); /* Corner where scrollbars meet */
-}
-
-/* Users list specific scrollbar (you already have this, but here's an improved version) */
-.users-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.users-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-  margin: 4px 0;
-}
-
-.users-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-  transition: all 0.3s ease;
-}
-
-.users-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-/* Alternative: Thinner, more subtle scrollbar */
-.subtle-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.subtle-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.subtle-scrollbar::-webkit-scrollbar-thumb {
+.ping-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  color: white;
+  transform: scale(1.05);
 }
 
-.subtle-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+.ping-toggle-btn.active {
+  background: rgba(114, 137, 218, 0.3);
+  border-color: rgba(114, 137, 218, 0.5);
+  color: rgb(114, 137, 218);
 }
 
-/* For textarea and input scrollbars */
-textarea::-webkit-scrollbar,
-.discord-input::-webkit-scrollbar {
-  width: 6px;
-}
-
-textarea::-webkit-scrollbar-track,
-.discord-input::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-
-textarea::-webkit-scrollbar-thumb,
-.discord-input::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-}
-
-textarea::-webkit-scrollbar-thumb:hover,
-.discord-input::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+.ping-toggle-btn.active:hover {
+  background: rgba(114, 137, 218, 0.4);
+  border-color: rgba(114, 137, 218, 0.6);
+  color: rgb(114, 137, 218);
 }
 
 @keyframes pulse {
