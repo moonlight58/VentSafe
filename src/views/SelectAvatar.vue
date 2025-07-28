@@ -1,37 +1,5 @@
 <template>
   <div class="app-container">
-    <!-- Animated background -->
-    <div class="background">
-      <!-- Stars -->
-      <div
-        v-for="star in stars"
-        :key="star.id"
-        class="star"
-        :style="{
-          left: star.x + '%',
-          top: star.y + '%',
-          width: star.size + 'px',
-          height: star.size + 'px',
-          animationDelay: star.delay + 's',
-          animationDuration: star.duration + 's',
-        }"
-      ></div>
-
-      <!-- Floating colored shapes -->
-      <div
-        v-for="shape in shapes"
-        :key="shape.id"
-        class="floating-shape"
-        :style="{
-          width: shape.size + 'px',
-          height: shape.size + 'px',
-          left: shape.x + '%',
-          top: shape.y + '%',
-          backgroundColor: shape.color,
-          animation: `float-${shape.id} ${shape.duration}s ease-in-out infinite`,
-        }"
-      ></div>
-    </div>
 
     <div class="main-container">
       <!-- Selected user display -->
@@ -225,8 +193,6 @@ const router = useRouter();
 
 // Reactive data
 const users = ref([]);
-const stars = ref([]);
-const shapes = ref([]);
 const failedImages = ref([]);
 const loading = ref(true);
 const error = ref(null);
@@ -435,56 +401,9 @@ const handleImageError = (event) => {
   }
 };
 
-// Generate animated background elements
-const generateStars = () => {
-  for (let i = 0; i < 50; i++) {
-    stars.value.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      delay: Math.random() * 3,
-      duration: Math.random() * 3 + 2,
-    });
-  }
-};
-
-const generateShapes = () => {
-  const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6"];
-  for (let i = 0; i < 8; i++) {
-    shapes.value.push({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 200 + 100,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      duration: Math.random() * 10 + 15,
-    });
-  }
-};
-
 onMounted(async () => {
-  generateStars();
-  generateShapes();
   loadSelectedUser();
   await loadUsers();
-
-  // Generate dynamic CSS for floating animations
-  const style = document.createElement("style");
-  let css = "";
-
-  shapes.value.forEach((shape) => {
-    css += `
-    @keyframes float-${shape.id} {
-      0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-      25% { transform: translateY(-20px) translateX(10px) rotate(90deg); }
-      50% { transform: translateY(-10px) translateX(-15px) rotate(180deg); }
-      75% { transform: translateY(-30px) translateX(5px) rotate(270deg); }
-    }`;
-  });
-
-  style.textContent = css;
-  document.head.appendChild(style);
 });
 
 onUnmounted(() => {
@@ -511,29 +430,6 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-}
-
-.star {
-  position: absolute;
-  background-color: white;
-  border-radius: 50%;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.floating-shape {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.3;
 }
 
 .main-container {
@@ -842,17 +738,6 @@ onUnmounted(() => {
   padding: 0.5rem 1rem;
   cursor: pointer;
   transition: background-color 0.3s ease, transform 0.3s ease;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.3;
-  }
 }
 
 /* Hide scrollbars but keep functionality */

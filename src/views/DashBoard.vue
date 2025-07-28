@@ -1,35 +1,6 @@
 <template>
   <div class="dashboard">
     <!-- Background elements similar to SelectAvatar -->
-    <div class="background">
-      <div
-        v-for="star in stars"
-        :key="star.id"
-        class="star"
-        :style="{
-          left: star.x + '%',
-          top: star.y + '%',
-          width: star.size + 'px',
-          height: star.size + 'px',
-          animationDelay: star.delay + 's',
-          animationDuration: star.duration + 's',
-        }"
-      ></div>
-
-      <div
-        v-for="shape in shapes"
-        :key="shape.id"
-        class="floating-shape"
-        :style="{
-          width: shape.size + 'px',
-          height: shape.size + 'px',
-          left: shape.x + '%',
-          top: shape.y + '%',
-          backgroundColor: shape.color,
-          animation: `float-${shape.id} ${shape.duration}s ease-in-out infinite`,
-        }"
-      ></div>
-    </div>
 
     <div class="main-container">
       <!-- User header -->
@@ -533,8 +504,6 @@ export default {
     const editMood = ref(null);
 
     // Background animation elements
-    const stars = ref([]);
-    const shapes = ref([]);
 
     // User card sync state
     const isOnline = ref(true);
@@ -904,32 +873,6 @@ export default {
     };
 
     // Background generation functions
-    const generateStars = () => {
-      for (let i = 0; i < 30; i++) {
-        stars.value.push({
-          id: i,
-          x: Math.random() * 100,
-          y: Math.random() * 100,
-          size: Math.random() * 2 + 1,
-          delay: Math.random() * 3,
-          duration: Math.random() * 3 + 2,
-        });
-      }
-    };
-
-    const generateShapes = () => {
-      const colors = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6"];
-      for (let i = 0; i < 5; i++) {
-        shapes.value.push({
-          id: i,
-          x: Math.random() * 100,
-          y: Math.random() * 100,
-          size: Math.random() * 150 + 100,
-          color: colors[Math.floor(Math.random() * colors.length)],
-          duration: Math.random() * 8 + 12,
-        });
-      }
-    };
 
     const createCard = async () => {
       if (!canCreateCard.value) return;
@@ -1373,30 +1316,6 @@ export default {
       });
 
       // Generate background elements
-      generateStars();
-      generateShapes();
-
-      // Add dynamic CSS for floating shapes
-      const style = document.createElement("style");
-      style.textContent = shapes.value
-        .map(
-          (shape) => `
-        @keyframes float-${shape.id} {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(${Math.random() * 20 - 10}px, ${
-            Math.random() * 20 - 10
-          }px) rotate(90deg); }
-          50% { transform: translate(${Math.random() * 30 - 15}px, ${
-            Math.random() * 30 - 15
-          }px) rotate(180deg); }
-          75% { transform: translate(${Math.random() * 20 - 10}px, ${
-            Math.random() * 20 - 10
-          }px) rotate(270deg); }
-        }
-      `
-        )
-        .join("");
-      document.head.appendChild(style);
 
       // Setup network monitoring
       window.addEventListener("online", updateOnlineStatus);
@@ -1436,8 +1355,6 @@ export default {
       editingCard,
       editText,
       editMood,
-      stars,
-      shapes,
       isOnline,
       syncStatus,
 
@@ -1484,29 +1401,6 @@ export default {
   position: relative;
   overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-}
-
-.star {
-  position: absolute;
-  background-color: white;
-  border-radius: 50%;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.floating-shape {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.2;
 }
 
 .main-container {
@@ -2226,17 +2120,6 @@ export default {
   height: 17px;
   flex-shrink: 0;
   transition: transform 0.2s ease;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.3;
-  }
 }
 
 @keyframes spin {
