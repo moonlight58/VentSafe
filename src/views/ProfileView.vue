@@ -877,6 +877,10 @@ const toggleUserPing = (userId) => {
 // Toggle functions
 const toggleNotifications = () => {
   notificationsEnabled.value = !notificationsEnabled.value;
+  if (notificationsEnabled.value === false) {
+    discordNotifications.value = {};
+    discordPings.value = {};
+  }
   localStorage.setItem(
     "notificationsEnabled",
     JSON.stringify(notificationsEnabled.value)
@@ -894,6 +898,7 @@ const toggleNotifications = () => {
     "info",
     notificationsEnabled.value ? "🔔" : "🔕"
   );
+  saveDiscordSettings();
 };
 
 const toggleDarkMode = () => {
