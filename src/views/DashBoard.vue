@@ -185,9 +185,9 @@
               ></textarea>
               <div
                 class="char-count"
-                :class="{ 'limit-warning': cardText.length > 280 }"
+                :class="{ 'limit-warning': cardText.length > 1100 }"
               >
-                {{ cardText.length }}/300
+                {{ cardText.length }}/1200
               </div>
             </div>
 
@@ -370,9 +370,9 @@
                     v-model="editText"
                     class="edit-textarea"
                     rows="3"
-                    maxlength="300"
+                    maxlength="1200"
                   ></textarea>
-                  <div class="edit-char-count">{{ editText.length }}/300</div>
+                  <div class="edit-char-count">{{ editText.length }}/1200</div>
                 </div>
               </div>
 
@@ -608,7 +608,7 @@ export default {
       return (
         selectedMood.value &&
         cardText.value.trim().length > 0 &&
-        cardText.value.length <= 300 &&
+        cardText.value.length <= 1200 &&
         selectedProcessingTime.value !== null
       );
     });
@@ -967,16 +967,27 @@ export default {
           // Vérifier que l'utilisateur a configuré un webhook
           if (user.discordSettings?.webhookUrl) {
             try {
+              // Construire le contenu avec ping si configuré
+              let content = `💭 **${currentUser.value.name}** a posté un nouveau vent !`;
+
+              // Ajouter le ping Discord si l'utilisateur veut être pingé pour cet auteur
+              if (
+                user.discordSettings.pings?.[currentUser.value.id] === true &&
+                user.discordSettings.discordUserId
+              ) {
+                content = `<@${user.discordSettings.discordUserId}> ${content}`;
+              }
+
               await fetch(user.discordSettings.webhookUrl, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                  content: `💭 **${currentUser.value.name}** a posté un nouveau vent !`,
+                  content: content,
                   embeds: [
                     {
-                      title: "Nouveau message",
+                      title: "Vent déposé par " + currentUser.value.name,
                       description:
                         newCard.text.length > 100
                           ? newCard.text.substring(0, 100) + "..."

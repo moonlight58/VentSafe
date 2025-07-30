@@ -81,6 +81,7 @@ class FirebaseService {
       const userRef = ref(this.db, `users/${userId}`);
       await update(userRef, {
         discordSettings: {
+          userId: discordSettings.userId || "",
           username: discordSettings.username || "",
           webhookUrl: discordSettings.webhookUrl || "",
           notifications: discordSettings.notifications || {},
@@ -109,6 +110,7 @@ class FirebaseService {
         const userData = data[firebaseId];
         if (
           userData.discordSettings &&
+          userData.discordSettings.userId &&
           userData.discordSettings.notifications &&
           userData.discordSettings.notifications[userId] &&
           userData.discordSettings.webhookUrl &&
@@ -187,27 +189,36 @@ class FirebaseService {
     }
 
     try {
-      const response = await fetch(webhookUrl, {
+      // Prepare the webhook payload
+      const payload = {
+        content: "🧪 **Test de webhook réussi !**",
+        embeds: [
+          {
+            title: "Configuration Discord",
+            description:
+              "Votre webhook fonctionne correctement ! Vous recevrez maintenant les notifications de Vent Safe.",
+            color: 0x57f287, // Vert Discord (decimal format)
+            footer: {
+              text: "Vent Safe - Test de configuration",
+            },
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+
+      console.log('Sending webhook test to:', webhookUrl.trim());
+      console.log('Payload:', JSON.stringify(payload, null, 2));
+
+      const response = await fetch(webhookUrl.trim(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          content: "🧪 **Test de webhook réussi !**",
-          embeds: [
-            {
-              title: "Configuration Discord",
-              description:
-                "Votre webhook fonctionne correctement ! Vous recevrez maintenant les notifications de Vent Safe.",
-              color: 0x57f287, // Vert Discord
-              footer: {
-                text: "Vent Safe - Test de configuration",
-              },
-              timestamp: new Date().toISOString(),
-            },
-          ],
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
 
       if (response.ok) {
         return {
@@ -215,13 +226,24 @@ class FirebaseService {
           message: "Test réussi ! Webhook configuré correctement.",
         };
       } else {
-        const errorText = await response.text();
+        // Get more detailed error information
+        let errorText;
+        try {
+          const errorData = await response.json();
+          errorText = errorData.message || errorData.error || 'Erreur inconnue';
+        } catch (e) {
+          errorText = await response.text();
+        }
+        
+        console.error('Webhook error:', errorText);
+        
         return {
           success: false,
           error: `Erreur ${response.status}: ${errorText}`,
         };
       }
     } catch (error) {
+      console.error('Webhook request failed:', error);
       return {
         success: false,
         error: `Erreur de connexion: ${error.message}`,
