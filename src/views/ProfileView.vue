@@ -503,6 +503,36 @@
                   </div>
                 </div>
               </div>
+              
+              <div v-if="hasPingsEnabled" class="discord-id-section">
+                <label class="discord-label">
+                  Votre ID utilisateur Discord
+                  <span class="required">*</span>
+                </label>
+                <input
+                  v-model="discordUserId"
+                  type="text"
+                  placeholder="123456789012345678"
+                  class="modal-input discord-input discord-id-input"
+                  @input="saveDiscordSettings"
+                  required
+                />
+                <p class="discord-hint">
+                  💡 Nécessaire pour recevoir des pings (@mention) sur Discord
+                </p>
+                <div class="discord-id-help">
+                  <p class="help-text">📋 Comment obtenir votre ID Discord :</p>
+                  <ol class="help-steps">
+                    <li>
+                      Activez le mode développeur dans Discord (Paramètres →
+                      Avancé → Mode développeur)
+                    </li>
+                    <li>Faites clic droit sur votre nom d'utilisateur</li>
+                    <li>Cliquez sur "Copier l'ID utilisateur"</li>
+                    <li>Collez l'ID dans le champ ci-dessus</li>
+                  </ol>
+                </div>
+              </div>
             </div>
 
             <!-- Guide d'utilisation -->
@@ -541,7 +571,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { firebaseService } from "../services/firebase.js";
 
@@ -570,12 +600,16 @@ const toastIcon = ref("✅");
 // Discord settings
 const showDiscordModal = ref(false);
 const discordUsername = ref("");
+const discordUserId = ref("");
 const discordNotifications = ref({});
 const discordPings = ref({});
 const allUsers = ref([]);
 const discordWebhookUrl = ref("");
 const webhookTestResult = ref(null);
 const isTestingWebhook = ref(false);
+const hasPingsEnabled = computed(() => {
+  return Object.values(discordPings.value).some((ping) => ping === true);
+});
 
 // Predefined colors
 const predefinedColors = ref([
@@ -767,6 +801,7 @@ const saveDiscordSettings = async () => {
   if (currentUser.value && currentUser.value.firebaseId) {
     try {
       const discordSettings = {
+        userId: discordUserId.value,
         username: discordUsername.value,
         webhookUrl: discordWebhookUrl.value,
         notifications: discordNotifications.value,
@@ -795,6 +830,7 @@ const loadDiscordSettings = async () => {
       currentUser.value.firebaseId
     );
     if (userData?.discordSettings) {
+      discordUserId.value = userData.discordSettings.userId || "";
       discordUsername.value = userData.discordSettings.username || "";
       discordWebhookUrl.value = userData.discordSettings.webhookUrl || "";
       discordNotifications.value = userData.discordSettings.notifications || {};
@@ -2278,6 +2314,48 @@ textarea::-webkit-scrollbar-thumb:hover,
   background: rgba(114, 137, 218, 0.4);
   border-color: rgba(114, 137, 218, 0.6);
   color: rgb(114, 137, 218);
+}
+
+.discord-id-section {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(114, 137, 218, 0.1);
+  border: 1px solid rgba(114, 137, 218, 0.3);
+  border-radius: 8px;
+}
+
+.discord-id-input {
+  margin-top: 0.5rem;
+  font-family: "Cascadia Code", monospace;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+}
+
+.discord-id-help {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid rgba(114, 137, 218, 0.6);
+}
+
+.help-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0 0 0.5rem 0;
+}
+
+.help-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.help-steps li {
+  margin-bottom: 0.25rem;
 }
 
 /* Responsive */
