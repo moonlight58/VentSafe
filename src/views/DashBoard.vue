@@ -326,9 +326,7 @@
               <div
                 v-if="
                   !isCardProcessing(card) &&
-                  editingCard &&
-                  (editingCard?.firebaseId === card.firebaseId ||
-                    editingCard?.id === card.id) &&
+                  isCardBeingEdited(card) &&
                   card.user.id === currentUser.id
                 "
                 class="edit-mode"
@@ -641,6 +639,23 @@ export default {
     // Check if card is in processing phase (creation)
     const isCardProcessing = (card) => {
       return card.isProcessing === true;
+    };
+
+    const isCardBeingEdited = (card) => {
+      if (!editingCard.value) return false;
+
+      // Vérifier d'abord les firebaseId (plus fiables)
+      if (editingCard.value.firebaseId && card.firebaseId) {
+        return editingCard.value.firebaseId === card.firebaseId;
+      }
+
+      // Sinon vérifier les id locaux (seulement s'ils existent tous les deux)
+      if (editingCard.value.id && card.id) {
+        return editingCard.value.id === card.id;
+      }
+
+      // Si aucune correspondance claire, retourner false
+      return false;
     };
 
     // Check if card is in processing time (waiting period)
@@ -1379,6 +1394,7 @@ export default {
       // Methods
       getCardKey,
       isCardProcessing,
+      isCardBeingEdited,
       isCardInProcessingTime,
       getProcessingTimeRemaining,
       makeVisibleNow,
