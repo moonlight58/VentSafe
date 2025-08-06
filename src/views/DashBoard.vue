@@ -556,7 +556,7 @@ export default {
       {
         id: 9,
         name: "Unsure",
-        emoji: "¯\\_(ツ)_/¯"
+        emoji: "😐"
       }
     ]);
 
