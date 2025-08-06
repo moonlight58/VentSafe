@@ -553,6 +553,11 @@ export default {
         name: "Confused",
         emoji: "🤔",
       },
+      {
+        id: 9,
+        name: "Unsure",
+        emoji: "¯\\_(ツ)_/¯"
+      }
     ]);
 
     // Processing time options
