@@ -325,6 +325,13 @@ const migrateDefaultUsers = async () => {
       color: "#f59e0b",
       description: "Bright energy and warmth",
     },
+    {
+      id: 3,
+      name: "Chapo",
+      avatar: "/pfp/chapo.webp",
+      color: "#10b981",
+      description: "Nature lover and adventurer",
+    }
   ];
 
   try {
