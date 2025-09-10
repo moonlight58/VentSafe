@@ -298,7 +298,7 @@ const loadUsers = async () => {
       console.log("📊 Utilisateurs chargés depuis Firebase:", firebaseUsers);
       debugFirebaseUsers(); // Appelez la fonction de debug
 
-      if (firebaseUsers.length === 0) {
+      if (firebaseUsers.length === 0 || firebaseUsers === null || firebaseUsers === 2) {
         migrateDefaultUsers();
       }
     });
