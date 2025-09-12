@@ -132,16 +132,6 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label">Avatar URL</label>
-              <input
-                v-model="newUser.avatar"
-                type="url"
-                class="form-input"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div class="form-field">
               <label class="form-label">Couleur</label>
               <div class="color-picker">
                 <div
@@ -153,6 +143,20 @@
                   :style="{ backgroundColor: color }"
                 ></div>
               </div>
+            </div>
+
+            <div class="form-field">
+              <div class="form-label">Avatar file</div>
+              <div class="preview-file">  
+                <img
+                  v-if="avatarPreview"
+                  :src="avatarPreview"
+                  alt="Aperçu avatar"
+                  class="avatar-preview"
+                  style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; margin-bottom: 0.5rem;"
+                />
+              </div>
+              <input type="file" accept="image/*" @change="onAvatarFileChange" />
             </div>
 
             <div class="form-actions">
@@ -210,6 +214,9 @@ const newUser = ref({
   avatar: "",
   color: "#6366f1",
 });
+
+const avatarFile = ref(null);
+const avatarPreview = ref("");
 
 const availableColors = [
   "#6366f1",
@@ -299,8 +306,7 @@ const loadUsers = async () => {
 
       if (
         firebaseUsers.length === 0 ||
-        firebaseUsers.length === null ||
-        firebaseUsers.length === 2
+        firebaseUsers.length === null
       ) {
         migrateDefaultUsers();
       }
@@ -408,6 +414,19 @@ const handleImageError = (event) => {
   const userId = img.alt; // Utilise le nom comme fallback ID
   if (!failedImages.value.includes(userId)) {
     failedImages.value.push(userId);
+  }
+};
+
+const onAvatarFileChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    avatarFile.value = file;
+    avatarPreview.value = URL.createObjectURL(file);
+    newUser.value.avatar = avatarPreview.value; // Utilise la preview comme avatar temporaire
+  } else {
+    avatarFile.value = null;
+    avatarPreview.value = "";
+    newUser.value.avatar = "";
   }
 };
 
